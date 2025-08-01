@@ -7,33 +7,41 @@ import (
 	"time"
 )
 
-// PrintConfig prints stucture with field and valued
+// PrintConfig prints structure with field names and values in a clean format
 func PrintConfig(cfg any) {
 	fmt.Println("Configuration:")
 	fmt.Println("--------------")
-	printReflected(reflect.ValueOf(cfg), 0)
+	printReflected(reflect.ValueOf(cfg), "", 0)
 }
 
-func printReflected(v reflect.Value, depth int) {
+func printReflected(v reflect.Value, fieldName string, depth int) {
 	// Handle pointers
 	if v.Kind() == reflect.Ptr {
 		if v.IsNil() {
-			fmt.Printf("%s<nil>\n", strings.Repeat("  ", depth))
+			fmt.Printf("%s%s: <nil>\n", strings.Repeat("  ", depth), fieldName)
 			return
 		}
 		v = v.Elem()
 	}
 
-	// Only process structs
+	// Handle basic types directly
 	if v.Kind() != reflect.Struct {
-		fmt.Printf("%s%v\n", strings.Repeat("  ", depth), v.Interface())
+		if fieldName != "" {
+			fmt.Printf("%s%s: %v\n", strings.Repeat("  ", depth), fieldName, v.Interface())
+		} else {
+			fmt.Printf("%s%v\n", strings.Repeat("  ", depth), v.Interface())
+		}
 		return
 	}
 
-	t := v.Type()
-	fmt.Printf("%s%s:\n", strings.Repeat("  ", depth), t.Name())
+	// If this is a nested struct (with name), print only field name, not type name
+	if fieldName != "" {
+		fmt.Printf("%s%s:\n", strings.Repeat("  ", depth), fieldName)
+	}
 
-	for i := range v.NumField() {
+	t := v.Type()
+
+	for i := 0; i < v.NumField(); i++ {
 		field := v.Field(i)
 		fieldType := t.Field(i)
 
@@ -42,29 +50,26 @@ func printReflected(v reflect.Value, depth int) {
 			continue
 		}
 
-		fmt.Printf("%s%s: ", strings.Repeat("  ", depth+1), fieldType.Name)
+		// Mask sensitive fields
+		nameLower := strings.ToLower(fieldType.Name)
+		if strings.Contains(nameLower, "password") || strings.Contains(nameLower, "secret") || strings.Contains(nameLower, "key") {
+			fmt.Printf("%s%s: ******\n", strings.Repeat("  ", depth+1), fieldType.Name)
+			continue
+		}
 
 		// Handle time.Duration specially
 		if field.Type().String() == "time.Duration" {
-			fmt.Printf("%v\n", field.Interface().(time.Duration))
+			fmt.Printf("%s%s: %v\n", strings.Repeat("  ", depth+1), fieldType.Name, field.Interface().(time.Duration))
 			continue
 		}
 
-		// Recursively handle nested structs
+		// Recurse for nested structs or pointers to structs
 		if field.Kind() == reflect.Struct || (field.Kind() == reflect.Ptr && field.Elem().Kind() == reflect.Struct) {
-			fmt.Println()
-			printReflected(field, depth+2)
+			printReflected(field, fieldType.Name, depth+1)
 			continue
 		}
 
-		// Mask sensitive fields
-		if strings.Contains(strings.ToLower(fieldType.Name), "password") ||
-			strings.Contains(strings.ToLower(fieldType.Name), "secret") ||
-			strings.Contains(strings.ToLower(fieldType.Name), "key") {
-			fmt.Println("******")
-			continue
-		}
-
-		fmt.Printf("%v\n", field.Interface())
+		// Print normal value
+		fmt.Printf("%s%s: %v\n", strings.Repeat("  ", depth+1), fieldType.Name, field.Interface())
 	}
 }

@@ -19,7 +19,8 @@ type (
 
 	// HTTP service
 	HTTPServer struct {
-		Port int `env:"HTTP_PORT" default:"8080"`
+		Host string `env:"HTTP_HOST" default:"0.0.0.0"`
+		Port int    `env:"HTTP_PORT" default:"8080"`
 	}
 )
 

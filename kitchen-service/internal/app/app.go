@@ -13,8 +13,6 @@ import (
 	"syscall"
 )
 
-const serviceName = "go-template"
-
 type App struct {
 	postgresDB *postgres.PostgreDB
 
@@ -48,7 +46,7 @@ func (app *App) Run() error {
 	errCh := make(chan error, 1)
 	ctx := context.Background()
 
-	app.log.Info(ctx, "application started", "name", serviceName)
+	app.log.Info(ctx, "app_run", "application started")
 
 	// Waiting signal
 	shutdownCh := make(chan os.Signal, 1)
@@ -58,10 +56,10 @@ func (app *App) Run() error {
 	case errRun := <-errCh:
 		return errRun
 	case s := <-shutdownCh:
-		app.log.Info(ctx, "shuting down application", "signal", s.String())
+		app.log.Info(ctx, "app_run", "shuting down application", "signal", s.String())
 
 		app.Close(ctx)
-		app.log.Info(ctx, "graceful shutdown completed!")
+		app.log.Info(ctx, "app_run", "graceful shutdown completed!")
 	}
 
 	return nil

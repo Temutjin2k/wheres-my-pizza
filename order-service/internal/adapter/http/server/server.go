@@ -12,7 +12,7 @@ import (
 	"github.com/Temutjin2k/wheres-my-pizza/order-service/pkg/logger"
 )
 
-const serverIPAddress = ":%d" // Change to 0.0.0.0 for external access
+const serverIPAddress = "%s:%d"
 
 type API struct {
 	cfg    config.HTTPServer
@@ -25,7 +25,7 @@ type API struct {
 }
 
 func New(cfg *config.Config, logger logger.Logger) *API {
-	addr := fmt.Sprintf(serverIPAddress, cfg.Server.HTTPServer.Port)
+	addr := fmt.Sprintf(serverIPAddress, cfg.Server.HTTPServer.Host, cfg.Server.HTTPServer.Port)
 
 	// Setup routes
 	mux := http.NewServeMux()

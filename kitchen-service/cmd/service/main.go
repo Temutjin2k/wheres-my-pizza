@@ -7,13 +7,16 @@ import (
 	"kitchen-service/pkg/logger"
 )
 
-const configPath = "config.yaml"
+const (
+	serviceName = "tracking-service"
+	configPath  = "config.yaml"
+)
 
 func main() {
 	ctx := context.Background()
 
 	// Init logger
-	log := logger.InitLogger(logger.LevelDebug)
+	log := logger.InitLogger(serviceName, logger.LevelDebug)
 
 	// Init config
 	cfg, err := config.New(configPath)

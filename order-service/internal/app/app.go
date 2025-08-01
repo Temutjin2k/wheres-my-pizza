@@ -14,8 +14,6 @@ import (
 	"syscall"
 )
 
-const serviceName = "go-template"
-
 type App struct {
 	httpServer *httpserver.API
 	postgresDB *postgres.PostgreDB
@@ -50,7 +48,7 @@ func (app *App) Close(ctx context.Context) {
 
 	// Closing http server
 	if err := app.httpServer.Stop(ctx); err != nil {
-		app.log.Error(ctx, "failed to shutdown HTTP service", "Err", err.Error())
+		app.log.Error(ctx, "app_close", "failed to shutdown HTTP service", err)
 	}
 }
 
@@ -61,7 +59,7 @@ func (app *App) Run() error {
 	// Running http server
 	app.httpServer.Run(ctx, errCh)
 
-	app.log.Info(ctx, "application started", "name", serviceName)
+	app.log.Info(ctx, "app_run", "application started")
 
 	// Waiting signal
 	shutdownCh := make(chan os.Signal, 1)
@@ -71,10 +69,10 @@ func (app *App) Run() error {
 	case errRun := <-errCh:
 		return errRun
 	case s := <-shutdownCh:
-		app.log.Info(ctx, "shuting down application", "signal", s.String())
+		app.log.Info(ctx, "app_run", "shuting down application", "signal", s.String())
 
 		app.Close(ctx)
-		app.log.Info(ctx, "graceful shutdown completed!")
+		app.log.Info(ctx, "app_run", "graceful shutdown completed!")
 	}
 
 	return nil

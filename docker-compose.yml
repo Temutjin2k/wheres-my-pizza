@@ -1,0 +1,75 @@
+version: '3.8'
+
+networks:
+  net:
+    driver: bridge
+
+services: 
+  kitchen-service:
+    build:
+      context: ./kitchen-service
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgresql:
+        condition: service_healthy
+    networks:
+      - net
+
+  notification-service:
+    build:
+      context: ./notification-service
+      dockerfile: Dockerfile
+    ports:
+      - "8081:8080"
+    depends_on:
+      postgresql:
+        condition: service_healthy
+    networks:
+      - net
+
+  order-service:
+    build:
+      context: ./order-service
+      dockerfile: Dockerfile
+    ports:
+      - "8082:8080" 
+    depends_on:
+      postgresql:
+        condition: service_healthy
+    networks:
+      - net
+
+  tracking-service:
+    build:
+      context: ./tracking-service
+      dockerfile: Dockerfile
+    ports:
+      - "8083:8080"
+    depends_on:
+      postgresql:
+        condition: service_healthy
+    networks:
+      - net
+
+  postgresql:
+    image: postgres:16.3
+    hostname: postgresql
+    ports:
+      - 5432:5432
+    networks:
+      - net
+    volumes:
+      - ./data/postgresql:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: pizza
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d pizza"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+

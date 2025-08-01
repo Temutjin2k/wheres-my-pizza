@@ -4,34 +4,13 @@ networks:
   net:
     driver: bridge
 
+volumes:
+  rabbitmq_data:
+
 services: 
-  kitchen-service:
+  restaurant-system:
     build:
-      context: ./kitchen-service
-      dockerfile: Dockerfile
-    ports:
-      - "8080:8080"
-    depends_on:
-      postgresql:
-        condition: service_healthy
-    networks:
-      - net
-
-  notification-service:
-    build:
-      context: ./notification-service
-      dockerfile: Dockerfile
-    ports:
-      - "8081:8080"
-    depends_on:
-      postgresql:
-        condition: service_healthy
-    networks:
-      - net
-
-  order-service:
-    build:
-      context: ./order-service
+      context: .
       dockerfile: Dockerfile
     ports:
       - "8082:8080" 
@@ -41,17 +20,6 @@ services:
     networks:
       - net
 
-  tracking-service:
-    build:
-      context: ./tracking-service
-      dockerfile: Dockerfile
-    ports:
-      - "8083:8080"
-    depends_on:
-      postgresql:
-        condition: service_healthy
-    networks:
-      - net
 
   postgresql:
     image: postgres:16.3
@@ -73,3 +41,23 @@ services:
       timeout: 5s
       retries: 5
 
+  rabbitmq:
+    image: rabbitmq:latest
+    container_name: rabbitmq
+    hostname: rabbitmq
+    ports:
+      - "5672:5672"   # AMQP (default RabbitMQ port)
+      - "15672:15672" # Management UI
+    networks:
+      - net
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped

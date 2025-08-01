@@ -33,8 +33,5 @@ go.work.sum
 # Editor/IDE
 .vscode/
 
-# Congigs
-kitchen-service/config.yaml
-notification-service/config.yaml
-order-service/config.yaml
-tracking-service/config.yaml
+# Configs
+config.yaml

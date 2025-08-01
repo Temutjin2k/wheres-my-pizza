@@ -52,7 +52,7 @@ func (a *API) Stop(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	a.log.Info(ctx, "Shutting down HTTP server...", "Address", a.addr)
+	a.log.Info(ctx, "http_server_stop", "Shutting down HTTP server...", "Address", a.addr)
 	if err := a.server.Shutdown(ctx); err != nil {
 		return fmt.Errorf("error shutting down server: %w", err)
 	}
@@ -62,7 +62,7 @@ func (a *API) Stop(ctx context.Context) error {
 
 func (a *API) Run(ctx context.Context, errCh chan<- error) {
 	go func() {
-		a.log.Info(ctx, "Started http server", "Address", a.addr)
+		a.log.Info(ctx, "http_server_run", "Started http server", "Address", a.addr)
 		if err := http.ListenAndServe(a.addr, a.router); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- fmt.Errorf("failed to start HTTP server: %w", err)
 			return

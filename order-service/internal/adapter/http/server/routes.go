@@ -22,7 +22,7 @@ func (a *API) HealthCheck(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(response); err != nil {
-		a.log.Error(r.Context(), "failed to encode", "err", err)
+		a.log.Error(r.Context(), "healthcheck", "failed to encode", err)
 		return
 	}
 }

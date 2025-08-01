@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	serviceName = "tracking-service"
+	serviceName = "notification-service"
 	configPath  = "config.yaml"
 )
 
@@ -22,7 +22,7 @@ func main() {
 	// Init config
 	cfg, err := config.New(configPath)
 	if err != nil {
-		log.Error(ctx, "failed to init config", "error", err)
+		log.Error(ctx, "config_init", "failed to init config", err)
 		return
 	}
 
@@ -31,14 +31,14 @@ func main() {
 	// Creating application
 	app, err := app.NewApplication(ctx, cfg, log)
 	if err != nil {
-		log.Error(ctx, "failed to init application", "error", err)
+		log.Error(ctx, "app_init", "failed to init application", err)
 		return
 	}
 
 	// Running the apllication
 	err = app.Run()
 	if err != nil {
-		log.Error(ctx, "failed to run application", "error", err)
+		log.Error(ctx, "app_run", "failed to run application", err)
 		return
 	}
 }

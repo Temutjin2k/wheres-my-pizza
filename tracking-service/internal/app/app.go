@@ -70,7 +70,7 @@ func (app *App) Run() error {
 	case errRun := <-errCh:
 		return errRun
 	case s := <-shutdownCh:
-		app.log.Info(ctx, "shuting down application", "signal", s.String())
+		app.log.Info(ctx, "app_shutdown", "shuting down application", "signal", s.String())
 
 		app.Close(ctx)
 		app.log.Info(ctx, "app_shutdown", "graceful shutdown completed!")

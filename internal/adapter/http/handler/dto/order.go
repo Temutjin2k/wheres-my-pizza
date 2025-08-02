@@ -1,4 +1,5 @@
-package handler
+// dto - Data Transfer Obeject
+package dto
 
 type CreateOrderRequest struct {
 	CustomerName    string      `json:"customer_name"`

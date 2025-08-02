@@ -5,9 +5,11 @@ type Order struct {
 }
 
 type CreateOrderRequest struct {
-	CustomerName string
-	OrderType    string
-	Items        []OrderItem
+	CustomerName    string
+	OrderType       string
+	Items           []OrderItem
+	TableNumber     *int    // Only for dine_in
+	DeliveryAddress *string // Only for delivery
 }
 
 type OrderItem struct {

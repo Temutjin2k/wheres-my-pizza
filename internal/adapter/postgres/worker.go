@@ -4,16 +4,16 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type WorkerRepo struct {
+type workerRepository struct {
 	db *pgxpool.Pool
 }
 
-func NewRepo(db *pgxpool.Pool) *WorkerRepo {
-	return &WorkerRepo{
+func NewRepo(db *pgxpool.Pool) *workerRepository {
+	return &workerRepository{
 		db: db,
 	}
 }
 
-func (r *WorkerRepo) Get() error {
+func (r *workerRepository) Get() error {
 	return nil
 }

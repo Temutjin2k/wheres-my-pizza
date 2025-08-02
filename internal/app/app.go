@@ -21,6 +21,7 @@ type App struct {
 	log logger.Logger
 }
 
+// NewApplication parses flag and choose service to start.
 func NewApplication(ctx context.Context, cfg *config.Config, logger logger.Logger) (*App, error) {
 	// Database
 	db, err := postgres.New(ctx, cfg.Postgres)
@@ -31,7 +32,7 @@ func NewApplication(ctx context.Context, cfg *config.Config, logger logger.Logge
 	// Repo instance
 	_ = postgresRepo.NewRepo(db.Pool)
 
-	httpServer := httpserver.New(cfg, logger)
+	httpServer := httpserver.New(cfg, nil, logger)
 
 	app := &App{
 		httpServer: httpServer,

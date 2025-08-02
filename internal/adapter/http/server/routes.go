@@ -6,9 +6,11 @@ import (
 )
 
 // setupRoutes - setups http routes
-func (a *API) setupRoutes() {
+func (a *API) setupRoutes(mux *http.ServeMux) {
 	// System Health
-	a.router.HandleFunc("/health", a.HealthCheck)
+	mux.HandleFunc("/health", a.HealthCheck)
+	mux.HandleFunc("POST /order", a.routes.order.CreateOrder)
+
 }
 
 // HealthCheck - returns system information.

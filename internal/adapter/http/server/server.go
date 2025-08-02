@@ -10,18 +10,20 @@ import (
 
 	"github.com/Temutjin2k/wheres-my-pizza/config"
 	"github.com/Temutjin2k/wheres-my-pizza/internal/adapter/http/handler"
+	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/types"
 	"github.com/Temutjin2k/wheres-my-pizza/pkg/logger"
 )
 
 const serverIPAddress = "%s:%d"
 
 type API struct {
-	cfg    config.HTTPServer
-	router *http.ServeMux
+	mode   types.ServiceMode
+	mux    *http.ServeMux
 	server *http.Server
 	routes *handlers // routes/handlers
 
 	addr string
+	cfg  config.HTTPServer
 	log  logger.Logger
 }
 
@@ -37,7 +39,9 @@ func New(cfg config.Config, orderService handler.OrderService, logger logger.Log
 	}
 
 	api := &API{
-		router: http.NewServeMux(),
+		mode: cfg.Flags.Mode,
+
+		mux:    http.NewServeMux(),
 		routes: handlers,
 
 		addr: addr,
@@ -47,10 +51,10 @@ func New(cfg config.Config, orderService handler.OrderService, logger logger.Log
 
 	api.server = &http.Server{
 		Addr:    api.addr,
-		Handler: api.router,
+		Handler: api.mux,
 	}
 
-	api.setupRoutes(api.router)
+	api.setupRoutes()
 
 	return api
 }
@@ -70,7 +74,7 @@ func (a *API) Stop(ctx context.Context) error {
 func (a *API) Run(ctx context.Context, errCh chan<- error) {
 	go func() {
 		a.log.Info(ctx, "http_server_run", "started http server", "address", a.addr)
-		if err := http.ListenAndServe(a.addr, a.RequestIDMiddleware(a.router)); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		if err := http.ListenAndServe(a.addr, a.RequestIDMiddleware(a.mux)); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- fmt.Errorf("failed to start HTTP server: %w", err)
 			return
 		}

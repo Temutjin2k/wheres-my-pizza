@@ -3,14 +3,38 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+
+	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/types"
 )
 
 // setupRoutes - setups http routes
-func (a *API) setupRoutes(mux *http.ServeMux) {
-	// System Health
-	mux.HandleFunc("/health", a.HealthCheck)
-	mux.HandleFunc("POST /order", a.routes.order.CreateOrder)
+func (a *API) setupRoutes() {
+	a.setupDefaultRoutes()
 
+	switch a.mode {
+	case types.ModeOrder:
+		a.setupOrderRoutes()
+	case types.ModeTracking:
+		a.setupTrackingRoutes()
+	}
+}
+
+// setupDefaultRoutes - setups default http routes
+func (a *API) setupDefaultRoutes() {
+	// System Health
+	a.mux.HandleFunc("/health", a.HealthCheck)
+}
+
+// setupOrderRoutes setups routes for order service
+func (a *API) setupOrderRoutes() {
+	a.mux.HandleFunc("POST /order", a.routes.order.CreateOrder)
+}
+
+// setupTrackingRoutes setups routes for tracking service
+func (a *API) setupTrackingRoutes() {
+	a.mux.HandleFunc("GET /orders/{order_number}/status", nil)
+	a.mux.HandleFunc("GET /orders/{order_number}/history", nil)
+	a.mux.HandleFunc("GET /workers/status", nil)
 }
 
 // HealthCheck - returns system information.

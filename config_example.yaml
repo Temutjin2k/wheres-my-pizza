@@ -4,7 +4,3 @@ postgres:
   user: restaurant_user
   password: restaurant_pass
   database: restaurant_db
-
-http:
-  host: 0.0.0.0
-  port: 8080

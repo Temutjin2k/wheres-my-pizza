@@ -3,6 +3,7 @@ package types
 const (
 	// Info level actions
 	ActionServiceStarted    = "service_started"
+	ActionServiceStop       = "service_stop"
 	ActionDBConnected       = "db_connected"
 	ActionRabbitMQConnected = "rabbitmq_connected"
 

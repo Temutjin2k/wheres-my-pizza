@@ -29,8 +29,8 @@ type handlers struct {
 	order *handler.Order
 }
 
-func New(cfg *config.Config, orderService handler.OrderService, logger logger.Logger) *API {
-	addr := fmt.Sprintf(serverIPAddress, cfg.Server.HTTPServer.Host, cfg.Server.HTTPServer.Port)
+func New(cfg config.Config, orderService handler.OrderService, logger logger.Logger) *API {
+	addr := fmt.Sprintf(serverIPAddress, "0.0.0.0", cfg.Server.HTTPServer.Port)
 
 	handlers := &handlers{
 		order: handler.NewOrder(orderService, logger),

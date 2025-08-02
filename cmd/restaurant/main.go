@@ -29,14 +29,14 @@ func main() {
 	config.PrintConfig(cfg)
 
 	// Creating application
-	app, err := app.NewApplication(ctx, cfg, log)
+	app, err := app.NewApplication(ctx, *cfg, log)
 	if err != nil {
 		log.Error(ctx, "app_init", "failed to init application", err)
 		return
 	}
 
 	// Running the apllication
-	err = app.Run()
+	err = app.Run(ctx)
 	if err != nil {
 		log.Error(ctx, "app_run", "failed to run application", err)
 		return

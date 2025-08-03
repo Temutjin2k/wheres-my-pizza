@@ -11,13 +11,15 @@ import (
 
 type Service struct {
 	orderRepo OrderRepository
+	writer    MessageBroker
 
 	log logger.Logger
 }
 
-func NewService(repo OrderRepository, log logger.Logger) *Service {
+func NewService(repo OrderRepository, writer MessageBroker, log logger.Logger) *Service {
 	return &Service{
 		orderRepo: repo,
+		writer:    writer,
 		log:       log,
 	}
 }

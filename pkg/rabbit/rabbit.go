@@ -14,10 +14,10 @@ type RabbitMQ struct {
 }
 
 type Config struct {
-	Host     string `yaml:"host" env:"RABBITMQ_HOST" env-default:"localhost"`
-	Port     string `yaml:"port" env:"RABBITMQ_PORT" env-default:"5672"`
-	User     string `yaml:"user" env:"RABBITMQ_USER" env-default:"guest"`
-	Password string `yaml:"password" env:"RABBITMQ_PASSWORD" env-default:"guest"`
+	Host     string `env:"RABBITMQ_HOST" default:"localhost"`
+	Port     string `env:"RABBITMQ_PORT" default:"5672"`
+	User     string `env:"RABBITMQ_USER" default:"guest"`
+	Password string `env:"RABBITMQ_PASSWORD" default:"guest"`
 }
 
 func (c Config) GetDSN() string {
@@ -32,7 +32,6 @@ func (c Config) GetDSN() string {
 func New(ctx context.Context, config Config) (*RabbitMQ, error) {
 	conn, err := amqp.DialConfig(config.GetDSN(), amqp.Config{
 		Heartbeat: 10 * time.Second,
-		Locale:    "en_US",
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to RabbitMQ: %w", err)

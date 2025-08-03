@@ -59,10 +59,9 @@ func (m *CreateOrder) CalucalteTotalAmount() {
 }
 
 // CalculatePriority sets priority
-// Priority	Criteria
-// '10'	Order total amount is greater than $100.
-// '5'	Order total amount is between $50 and $100.
-// '1'	All other standard orders.
+// '10' if Order total amount is greater than $100.
+// '5'	if Order total amount is between $50 and $100.
+// '1'	if All other standard orders.
 func (m *CreateOrder) CalculatePriority() {
 	switch {
 	case m.TotalAmount > 100:

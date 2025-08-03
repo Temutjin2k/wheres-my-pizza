@@ -25,3 +25,13 @@ migrate-down:
 ## Посмотреть текущую версию миграций
 migrate-version:
 	migrate -path=./migrations -database "$(DB_URL)" version
+
+
+up:
+	docker-compose up --build
+
+down:
+	docker-compose down 
+
+nuke:
+	docker-compose down -v

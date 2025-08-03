@@ -1,3 +1,5 @@
+SET TIME ZONE 'Asia/Almaty';
+
 CREATE TABLE IF NOT EXISTS order_sequences (
     "date"        DATE         PRIMARY KEY,
     "last_value"  INTEGER      NOT NULL DEFAULT 0,

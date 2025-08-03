@@ -37,7 +37,7 @@ func NewOrder(ctx context.Context, cfg config.Config, log logger.Logger) (*Order
 
 	orderService := order.NewService(orderRepo, nil, log)
 
-	api := httpserver.New(cfg, orderService, log)
+	api := httpserver.New(cfg, orderService, nil, log)
 	return &Order{
 		postgresDB: db,
 		httpServer: api,

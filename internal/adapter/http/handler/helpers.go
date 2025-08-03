@@ -8,6 +8,8 @@ import (
 	"maps"
 	"net/http"
 	"strings"
+
+	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/models"
 )
 
 type envelope map[string]any
@@ -91,4 +93,13 @@ func readJSON(w http.ResponseWriter, r *http.Request, dst any) error {
 	}
 
 	return nil
+}
+
+func getCode(err error) int {
+	switch err {
+	case models.ErrOrderNotFound, models.ErrWorkerNotFound:
+		return http.StatusNotFound
+	default:
+		return http.StatusInternalServerError
+	}
 }

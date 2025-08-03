@@ -48,8 +48,9 @@ type (
 	}
 
 	Services struct {
-		Order   OrderService
-		Kitchen KitchenService
+		Order    OrderService
+		Kitchen  KitchenService
+		Tracking TrackingService
 	}
 
 	// Servers config
@@ -69,6 +70,10 @@ type (
 
 	OrderService struct {
 		MaxConcurrent int
+	}
+
+	TrackingService struct {
+		HeartbeatInterval int
 	}
 
 	KitchenService struct {
@@ -135,6 +140,7 @@ func parseFlags(cfg *Config) error {
 		} else {
 			cfg.Server.HTTPServer.Port = DefaultTrackingServicePort
 		}
+		cfg.Services.Tracking.HeartbeatInterval = *heartbeatInt
 	case types.ModeNotificationSubscriber:
 	default:
 		return ErrInvalidModeFlag

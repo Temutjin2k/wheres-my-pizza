@@ -32,9 +32,9 @@ func (a *API) setupOrderRoutes() {
 
 // setupTrackingRoutes setups routes for tracking service
 func (a *API) setupTrackingRoutes() {
-	a.mux.HandleFunc("GET /orders/{order_number}/status", nil)
-	a.mux.HandleFunc("GET /orders/{order_number}/history", nil)
-	a.mux.HandleFunc("GET /workers/status", nil)
+	a.mux.HandleFunc("GET /orders/{order_number}/status", a.routes.tracking.GetOrderStatus)
+	a.mux.HandleFunc("GET /orders/{order_number}/history", a.routes.tracking.GetTrackingHistory)
+	a.mux.HandleFunc("GET /workers/status", a.routes.tracking.ListWorkers)
 }
 
 // HealthCheck - returns system information.

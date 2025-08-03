@@ -1,3 +1,5 @@
+SET TIME ZONE 'Asia/Almaty';
+
 CREATE TABLE IF NOT EXISTS workers (
     "id"                serial      primary key,
     "created_at"        timestamptz not null    default now(),

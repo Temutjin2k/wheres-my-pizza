@@ -8,11 +8,13 @@ const (
 	ActionRabbitMQConnected = "rabbitmq_connected"
 
 	// Debug level actions
-	ActionOrderReceived  = "order_received"
-	ActionOrderPublished = "order_published"
+	ActionOrderReceived   = "order_received"
+	ActionRequestReceived = "request_received"
+	ActionOrderPublished  = "order_published"
 
 	// Error level actions
 	ActionValidationFailed      = "validation_failed"
 	ActionDBTransactionFailed   = "db_transaction_failed"
+	ActionDBQueryFailed         = "db_query_failed"
 	ActionRabbitMQPublishFailed = "rabbitmq_publish_failed"
 )

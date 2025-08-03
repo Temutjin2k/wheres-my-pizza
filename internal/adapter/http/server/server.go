@@ -28,14 +28,16 @@ type API struct {
 }
 
 type handlers struct {
-	order *handler.Order
+	order    *handler.Order
+	tracking *handler.Tracking
 }
 
-func New(cfg config.Config, orderService handler.OrderService, logger logger.Logger) *API {
+func New(cfg config.Config, orderService handler.OrderService, trackingService handler.TrackingService, logger logger.Logger) *API {
 	addr := fmt.Sprintf(serverIPAddress, "0.0.0.0", cfg.Server.HTTPServer.Port)
 
 	handlers := &handlers{
-		order: handler.NewOrder(orderService, logger),
+		order:    handler.NewOrder(orderService, logger),
+		tracking: handler.NewTracking(trackingService, logger),
 	}
 
 	api := &API{

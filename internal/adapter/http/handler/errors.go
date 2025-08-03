@@ -21,7 +21,3 @@ func failedValidationResponse(w http.ResponseWriter, errors map[string]string) {
 func internalErrorResponse(w http.ResponseWriter, message any) {
 	errorResponse(w, http.StatusInternalServerError, message)
 }
-
-func notFoundErrorResponse(w http.ResponseWriter) {
-	errorResponse(w, http.StatusNotFound, "requested resource not found")
-}

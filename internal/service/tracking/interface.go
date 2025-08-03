@@ -1,4 +1,4 @@
-package service
+package tracking
 
 // Repository contract
 type Repo interface {

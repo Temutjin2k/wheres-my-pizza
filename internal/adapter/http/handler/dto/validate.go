@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"unicode/utf8"
 
+	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/models"
 	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/types"
 	"github.com/Temutjin2k/wheres-my-pizza/pkg/validator"
 )
@@ -34,7 +35,11 @@ var (
 	}
 )
 
-func ValidateCreateOrderRequest(v *validator.Validator, req CreateOrderRequest) {
+func ValidateCreateOrderRequest(v *validator.Validator, req *models.CreateOrder) {
+	if req == nil {
+		return
+	}
+
 	v.Check(
 		isValidCustomerName(req.CustomerName),
 		"customer_name",
@@ -43,7 +48,7 @@ func ValidateCreateOrderRequest(v *validator.Validator, req CreateOrderRequest) 
 
 	// Check if order_type in request contains in ValidOrderTypes
 	v.Check(
-		validator.PermittedValue(req.OrderType, ValidOrderTypes...),
+		validator.PermittedValue(req.Type, ValidOrderTypes...),
 		"order_type",
 		"must be one of: 'dine_in', 'takeout', or 'delivery'",
 	)
@@ -79,9 +84,9 @@ func ValidateCreateOrderRequest(v *validator.Validator, req CreateOrderRequest) 
 }
 
 // vaildateOrdertype does conditional validations based on order_type
-func vaildateOrdertype(v *validator.Validator, req CreateOrderRequest) {
+func vaildateOrdertype(v *validator.Validator, req *models.CreateOrder) {
 	// Conditional validations based on order_type
-	switch req.OrderType {
+	switch req.Type {
 	case types.OrderTypeDineIn:
 		v.Check(
 			req.TableNumber != nil,

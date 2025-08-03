@@ -4,7 +4,7 @@ import (
 	"errors"
 
 	"github.com/Temutjin2k/wheres-my-pizza/config"
-	svc "github.com/Temutjin2k/wheres-my-pizza/internal/app/service"
+	svc "github.com/Temutjin2k/wheres-my-pizza/internal/app/services"
 	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/types"
 	"github.com/Temutjin2k/wheres-my-pizza/pkg/logger"
 

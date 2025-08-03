@@ -12,18 +12,7 @@ import (
 )
 
 type OrderService interface {
-	CreateOrder(ctx context.Context, req *models.CreateOrderRequest) (*models.OrderCreatedInfo, error)
-}
-
-// bro FAKE implementation of OrderService
-type bro struct{}
-
-func (b *bro) CreateOrder(ctx context.Context, req *models.CreateOrderRequest) (*models.OrderCreatedInfo, error) {
-	return &models.OrderCreatedInfo{
-		OrderNumber: "0001",
-		Status:      types.StatusOrderReceived,
-		TotalAmount: 99.99,
-	}, nil
+	CreateOrder(ctx context.Context, req *models.CreateOrder) (*models.OrderCreatedInfo, error)
 }
 
 type Order struct {
@@ -33,7 +22,7 @@ type Order struct {
 
 func NewOrder(service OrderService, log logger.Logger) *Order {
 	return &Order{
-		service: &bro{},
+		service: service,
 		log:     log,
 	}
 }
@@ -49,15 +38,17 @@ func (h *Order) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	createOrder := dto.FromRequestToInternalCreateOrder(req)
+
 	v := validator.New()
-	dto.ValidateCreateOrderRequest(v, req)
+	dto.ValidateCreateOrderRequest(v, createOrder)
 	if !v.Valid() {
 		h.log.Error(ctx, types.ActionValidationFailed, "failed to validate request", v)
 		failedValidationResponse(w, v.Errors)
 		return
 	}
 
-	info, err := h.service.CreateOrder(ctx, &models.CreateOrderRequest{})
+	info, err := h.service.CreateOrder(ctx, createOrder)
 	if err != nil {
 		internalErrorResponse(w, err)
 		return
@@ -66,7 +57,7 @@ func (h *Order) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	response := envelope{
 		"customer_name": req.CustomerName,
 		"order_info": dto.CreateOrderResponse{
-			OrderNumber: info.OrderNumber,
+			OrderNumber: info.Number,
 			Status:      info.Status,
 			TotalAmount: info.TotalAmount,
 		},

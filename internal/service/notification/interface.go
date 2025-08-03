@@ -1,4 +1,4 @@
-package service
+package notification
 
 // Repository contract
 type Repo interface {

@@ -1,4 +1,4 @@
-package service
+package notification
 
 type Service struct {
 	repo Repo

@@ -1,4 +1,4 @@
-package service
+package services
 
 import (
 	"context"
@@ -9,13 +9,15 @@ import (
 
 	"github.com/Temutjin2k/wheres-my-pizza/config"
 	httpserver "github.com/Temutjin2k/wheres-my-pizza/internal/adapter/http/server"
+	"github.com/Temutjin2k/wheres-my-pizza/internal/adapter/postgres"
 	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/types"
+	"github.com/Temutjin2k/wheres-my-pizza/internal/service/order"
 	"github.com/Temutjin2k/wheres-my-pizza/pkg/logger"
-	"github.com/Temutjin2k/wheres-my-pizza/pkg/postgres"
+	postgresclient "github.com/Temutjin2k/wheres-my-pizza/pkg/postgres"
 )
 
 type Order struct {
-	postgresDB *postgres.PostgreDB
+	postgresDB *postgresclient.PostgreDB
 	httpServer *httpserver.API
 
 	cfg config.Config
@@ -24,15 +26,18 @@ type Order struct {
 
 func NewOrder(ctx context.Context, cfg config.Config, log logger.Logger) (*Order, error) {
 	// Postgres database
-	db, err := postgres.New(ctx, cfg.Postgres)
+	db, err := postgresclient.New(ctx, cfg.Postgres)
 	if err != nil {
 		log.Error(ctx, "db_connect", "failed to connect postgres", err)
 		return nil, fmt.Errorf("failed to connect postgres: %v", err)
 	}
-
 	log.Info(ctx, types.ActionDBConnected, "connected to the database")
 
-	api := httpserver.New(cfg, nil, log)
+	orderRepo := postgres.NewOrderRepo(db.Pool)
+
+	orderService := order.NewService(orderRepo, log)
+
+	api := httpserver.New(cfg, orderService, log)
 	return &Order{
 		postgresDB: db,
 		httpServer: api,

@@ -1,4 +1,4 @@
-package service
+package kitchen
 
 type Service struct {
 	repo Repo

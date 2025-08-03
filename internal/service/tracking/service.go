@@ -1,4 +1,4 @@
-package service
+package tracking
 
 type Service struct {
 	repo Repo

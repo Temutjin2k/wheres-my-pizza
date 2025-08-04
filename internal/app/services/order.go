@@ -10,6 +10,7 @@ import (
 	"github.com/Temutjin2k/wheres-my-pizza/config"
 	httpserver "github.com/Temutjin2k/wheres-my-pizza/internal/adapter/http/server"
 	"github.com/Temutjin2k/wheres-my-pizza/internal/adapter/postgres"
+	"github.com/Temutjin2k/wheres-my-pizza/internal/adapter/rabbit"
 	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/types"
 	"github.com/Temutjin2k/wheres-my-pizza/internal/service/order"
 	"github.com/Temutjin2k/wheres-my-pizza/pkg/logger"
@@ -35,7 +36,13 @@ func NewOrder(ctx context.Context, cfg config.Config, log logger.Logger) (*Order
 
 	orderRepo := postgres.NewOrderRepo(db.Pool)
 
-	orderService := order.NewService(orderRepo, nil, log)
+	writer, err := rabbit.NewClient(ctx, cfg.RabbitMQ)
+	if err != nil {
+		log.Error(ctx, "rabbit_connect", "failed to connect rabbitmq", err)
+		return nil, fmt.Errorf("failed to connect rabbitmq: %v", err)
+	}
+
+	orderService := order.NewService(orderRepo, writer, log)
 
 	api := httpserver.New(cfg, orderService, nil, log)
 	return &Order{

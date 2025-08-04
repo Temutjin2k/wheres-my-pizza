@@ -12,5 +12,5 @@ type OrderRepository interface {
 }
 
 type MessageBroker interface {
-	Publish(ctx context.Context) error
+	PublishCreateOrder(ctx context.Context, order *models.CreateOrder) error
 }

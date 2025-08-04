@@ -44,7 +44,7 @@ type (
 		Services Services
 		Server   Server
 		Postgres postgres.Config
-		RabbitMQ rabbit.Config
+		RabbitMQ RabbitMQ
 	}
 
 	Services struct {
@@ -81,6 +81,12 @@ type (
 		OrderType         string
 		Prefetch          int
 		HeartbeatInterval int
+	}
+
+	RabbitMQ struct {
+		Conn          rabbit.Config
+		OrderExchange string `env:"RABBITMQ_ORDER_EXCHANGE" default:"orders_topic"`
+		OrderQueue    string `env:"RABBITMQ_ORDER_QUEUE" default:"orders_topic"`
 	}
 )
 

@@ -39,7 +39,16 @@ func (s *Service) CreateOrder(ctx context.Context, req *models.CreateOrder) (*mo
 
 	order, err := s.orderRepo.Create(ctx, req)
 	if err != nil {
-		s.log.Error(ctx, types.ActionOrderReceived, "failed to create new order", err)
+		s.log.Error(ctx, types.ActionDBTransactionFailed, "failed to create new order", err)
+		return nil, err
+	}
+
+	// Send request info about publishing order with retry
+	if err := retry(5, time.Second, func() error {
+		return s.writer.PublishCreateOrder(ctx, req)
+	}); err != nil {
+		s.log.Error(ctx, types.ActionDBQueryFailed, "order stored to database, but not sended to writer", err)
+		// TODO: think how to handle: maybe remove from database order that just created.
 		return nil, err
 	}
 
@@ -52,4 +61,22 @@ func (s *Service) CreateOrder(ctx context.Context, req *models.CreateOrder) (*mo
 
 func todayDate() string {
 	return time.Now().UTC().Format("20060102") // Go's reference time format
+}
+
+// retry funciton to attempt request multiple times
+func retry(attempts int, delay time.Duration, fn func() error) error {
+	var err error
+
+	for i := range attempts {
+		err = fn()
+		if err == nil {
+			return nil
+		}
+
+		if i < attempts-1 {
+			time.Sleep(delay)
+		}
+	}
+
+	return err
 }

@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/models"
-	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/types"
 	"github.com/Temutjin2k/wheres-my-pizza/pkg/logger"
 )
 
@@ -32,8 +31,6 @@ func (h *Tracking) GetOrderStatus(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	orderNumber := r.PathValue("order_number")
 
-	h.log.Debug(ctx, types.ActionRequestReceived, "Request has been received", "URL", r.URL.String(), "method", r.Method, "order_number", orderNumber, "host", r.Host)
-
 	orderStatus, err := h.service.GetOrderStatus(ctx, orderNumber)
 	if err != nil {
 		errorResponse(w, getCode(err), err.Error())
@@ -50,8 +47,6 @@ func (h *Tracking) GetTrackingHistory(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	orderNumber := r.PathValue("order_number")
 
-	h.log.Debug(ctx, types.ActionRequestReceived, "Request has been received", "URL", r.URL.String(), "method", r.Method, "order_number", orderNumber, "host", r.Host)
-
 	historyList, err := h.service.GetTrackingHistory(ctx, orderNumber)
 	if err != nil {
 		errorResponse(w, getCode(err), err.Error())
@@ -66,7 +61,6 @@ func (h *Tracking) GetTrackingHistory(w http.ResponseWriter, r *http.Request) {
 
 func (h *Tracking) ListWorkers(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	h.log.Debug(ctx, types.ActionRequestReceived, "Request has been received", "URL", r.URL.String(), "method", r.Method, "host", r.Host)
 
 	workersList, err := h.service.ListWorkers(ctx)
 	if err != nil {

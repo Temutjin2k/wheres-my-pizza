@@ -11,45 +11,60 @@ import (
 	"github.com/Temutjin2k/wheres-my-pizza/pkg/logger"
 )
 
+func (a *API) withMiddleware() http.Handler {
+	return a.RequestLoggingMiddleware(
+		a.RequestIDMiddleware(a.mux),
+	)
+}
+
 // RequestLoggingMiddleware injects a request ID into the context and logs the request details.
 func (a *API) RequestLoggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 
-		// 1. Get or generate request ID
-		reqID := r.Header.Get("X-Request-ID")
-		if reqID == "" {
-			reqID = newRequestID()
-		}
-
-		// 2. Set X-Request-ID in response for tracing/debugging
-		w.Header().Set("X-Request-ID", reqID)
-
-		// 3. Inject request ID into context
-		ctx := logger.WithRequestID(r.Context(), reqID)
-
-		// 4. Log request start
+		// 1. Log request start
 		a.log.Debug(
-			ctx,
+			r.Context(),
 			types.ActionRequestReceived,
 			"Started",
 			"method", r.Method,
 			"URL", r.URL.Path,
 		)
 
-		// 5. Serve the request
-		next.ServeHTTP(w, r.WithContext(ctx))
+		// 2. Serve the request
+		next.ServeHTTP(w, r)
 
-		// 6. Log request end
+		// 3. Log request end
 		duration := time.Since(start)
 		a.log.Debug(
-			ctx,
+			r.Context(),
 			types.ActionRequestReceived,
 			"Completed",
 			"method", r.Method,
 			"URL", r.URL.Path,
 			"duration", duration,
 		)
+	})
+}
+
+// RequestIDMiddleware injects request_id to the request ctx
+func (a *API) RequestIDMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// 1. Reuse incoming X-Request-ID if provided
+		reqID := r.Header.Get("X-Request-ID")
+		if reqID == "" {
+			// 2. Otherwise generate one
+			reqID = newRequestID()
+		}
+
+		// 3. Echo to clients for debugging / tracing
+		w.Header().Set("X-Request-ID", reqID)
+
+		// 4. Inject into context for our logger
+		ctx := logger.WithRequestID(r.Context(), reqID)
+
+		// 5. Call the next handler
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 

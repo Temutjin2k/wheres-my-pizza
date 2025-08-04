@@ -76,7 +76,7 @@ func (a *API) Stop(ctx context.Context) error {
 func (a *API) Run(ctx context.Context, errCh chan<- error) {
 	go func() {
 		a.log.Info(ctx, "http_server_run", "started http server", "address", a.addr)
-		if err := http.ListenAndServe(a.addr, a.RequestLoggingMiddleware(a.mux)); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		if err := http.ListenAndServe(a.addr, a.withMiddleware()); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- fmt.Errorf("failed to start HTTP server: %w", err)
 			return
 		}

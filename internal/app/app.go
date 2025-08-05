@@ -67,7 +67,7 @@ func (app *App) initService(ctx context.Context, mode types.ServiceMode) error {
 	case types.ModeTracking:
 		service, err = svc.NewTracking(ctx, app.cfg, app.log)
 	case types.ModeNotificationSubscriber:
-		service = svc.NewNotificationSubscriber()
+		service, err = svc.NewNotificationSubscriber(ctx, app.cfg, app.log)
 	default:
 		return ErrInvalidMode
 	}

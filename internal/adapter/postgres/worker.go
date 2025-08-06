@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/models"
@@ -51,4 +52,8 @@ func (repo *workerRepository) List(ctx context.Context) ([]models.Worker, error)
 		return nil, models.ErrWorkerNotFound
 	}
 	return workers, nil
+}
+
+func (repo *workerRepository) RegisterOnline(ctx context.Context, name, orderType string) error {
+	return errors.ErrUnsupported
 }

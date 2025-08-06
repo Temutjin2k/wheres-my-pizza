@@ -63,7 +63,7 @@ func (app *App) initService(ctx context.Context, mode types.ServiceMode) error {
 	case types.ModeOrder:
 		service, err = svc.NewOrder(ctx, app.cfg, app.log)
 	case types.ModeKitchenWorker:
-		service = svc.NewKitchen()
+		service, err = svc.NewKitchen(ctx, app.cfg, app.log)
 	case types.ModeTracking:
 		service, err = svc.NewTracking(ctx, app.cfg, app.log)
 	case types.ModeNotificationSubscriber:

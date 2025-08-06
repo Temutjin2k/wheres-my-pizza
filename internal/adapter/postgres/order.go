@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/models"
+	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/types"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -91,6 +92,19 @@ func (r *orderRepository) Create(ctx context.Context, req *models.CreateOrder) (
 		if err != nil {
 			return nil, fmt.Errorf("failed to create order item: %w", err)
 		}
+	}
+
+	// Log initial status
+	_, err = tx.Exec(ctx,
+		`INSERT INTO order_status_log (
+			order_id,
+			status
+		) VALUES ($1, $2)`,
+		order.ID,
+		types.StatusOrderReceived, // 'received'
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to log initial order status: %w", err)
 	}
 
 	// Commit the transaction

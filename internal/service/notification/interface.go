@@ -9,4 +9,5 @@ import (
 type MessageReceiver interface {
 	StartListening(ctx context.Context) (chan models.StatusUpdate, error)
 	Close() error
+	GetListenerCount() (int, error)
 }

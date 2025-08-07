@@ -45,8 +45,6 @@ func NewNotificationSubscriber(ctx context.Context, cfg config.Config, log logge
 }
 
 func (s *NotificationSubsriber) Start(ctx context.Context) error {
-	s.log.Info(ctx, types.ActionServiceStarted, "service started")
-
 	errCh := make(chan error, 1)
 	go s.service.Notify(ctx, errCh)
 

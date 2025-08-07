@@ -9,4 +9,5 @@ type StatusUpdate struct {
 	ChangedBy   string    `json:"changed_by"`
 	Timestamp   time.Time `json:"timestamp"`
 	Completion  time.Time `json:"estimated_completion"`
+	RequestID   string    `json:"request_id"`
 }

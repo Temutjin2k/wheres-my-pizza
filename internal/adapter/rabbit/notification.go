@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/Temutjin2k/wheres-my-pizza/config"
@@ -17,6 +20,7 @@ type NotificationSubscriber struct {
 	cfg    config.RabbitMQ
 
 	exchangeName string
+	queueName    string
 	stop         chan struct{}
 	log          logger.Logger
 }
@@ -32,52 +36,55 @@ func NewNotificationSubscriber(client *rabbit.RabbitMQ, cfg config.RabbitMQ, log
 }
 
 func (s *NotificationSubscriber) StartListening(ctx context.Context) (chan models.StatusUpdate, error) {
-	queueName, err := s.declareAndBindQueue()
-	if err != nil {
-		s.log.Error(ctx, "rabbit_init_queue", "failed to declare/bind queue", err)
+	s.log.Info(ctx, "subscriber_start", "Starting to listen for notifications")
+
+	if err := s.declareAndBindQueue(); err != nil {
+		s.log.Error(ctx, "rabbit_init_queue", "Failed to declare/bind queue", err)
 		return nil, err
 	}
 
-	s.log.Info(ctx, "rabbit_queue_ready", fmt.Sprintf("Queue %s bound to exchange %s", queueName, s.exchangeName))
+	s.log.Info(ctx, "rabbit_queue_ready", fmt.Sprintf("Queue %s bound to exchange %s", s.queueName, s.exchangeName))
 
 	updateCh := make(chan models.StatusUpdate, 1)
 
-	go s.startConsuming(ctx, queueName, updateCh)
+	go s.startConsuming(ctx, updateCh)
 
 	return updateCh, nil
 }
 
-func (s *NotificationSubscriber) declareAndBindQueue() (string, error) {
+func (s *NotificationSubscriber) declareAndBindQueue() error {
 	if err := s.reader.Channel.ExchangeDeclare(
 		s.exchangeName,
 		"fanout",
 		true, false, false, false, nil,
 	); err != nil {
-		return "", fmt.Errorf("failed to declare exchange: %w", err)
+		return fmt.Errorf("failed to declare exchange: %w", err)
 	}
 
 	q, err := s.reader.Channel.QueueDeclare(
 		"", true, false, false, false, nil,
 	)
 	if err != nil {
-		return "", fmt.Errorf("failed to declare queue: %w", err)
+		return fmt.Errorf("failed to declare queue: %w", err)
 	}
 
 	if err := s.reader.Channel.QueueBind(
 		q.Name, "", s.exchangeName, false, nil,
 	); err != nil {
-		return "", fmt.Errorf("failed to bind queue: %w", err)
+		return fmt.Errorf("failed to bind queue: %w", err)
 	}
 
-	return q.Name, nil
+	s.queueName = q.Name
+
+	return nil
 }
 
-func (s *NotificationSubscriber) startConsuming(ctx context.Context, queueName string, outCh chan models.StatusUpdate) {
+func (s *NotificationSubscriber) startConsuming(ctx context.Context, outCh chan models.StatusUpdate) {
 	defer close(outCh)
 
 	for {
 		msgs, err := s.reader.Channel.Consume(
-			queueName, "", false, false, false, false, nil,
+			s.queueName, "", false, false, false, false, nil,
 		)
 		if err != nil {
 			s.log.Error(ctx, "rabbit_consume_start", "failed to consume messages", err)
@@ -87,25 +94,12 @@ func (s *NotificationSubscriber) startConsuming(ctx context.Context, queueName s
 		s.log.Info(ctx, "rabbit_listening", "Started listening for notifications")
 
 		connClose := make(chan struct{}, 1)
-		go s.isAlive(connClose)
+		go s.isAlive(ctx, connClose)
+
 	consumeLoop:
 		for {
 			select {
-			case <-connClose:
-				s.log.Warn(ctx, "rabbit_channel_closed", "Channel closed by broker, attempting to reconnect", "error", err)
-
-				if err := s.reconnect(ctx); err != nil {
-					s.log.Error(ctx, "rabbit_reconnect_failed", "Reconnection failed", err)
-					return
-				}
-
-				break consumeLoop
-			case <-s.stop:
-				s.log.Info(ctx, "rabbit_consume_stop", "Stopped listening to notifications")
-				return
-
 			case msg := <-msgs:
-
 				update, err := decodeStatusUpdate(msg.Body)
 				if err != nil {
 					s.log.Error(ctx, "notification_decode", "Failed to decode status update", err)
@@ -118,27 +112,38 @@ func (s *NotificationSubscriber) startConsuming(ctx context.Context, queueName s
 				}
 
 				outCh <- update
+			case <-connClose:
+				s.log.Warn(ctx, "rabbit_channel_closed", "Channel closed by broker, attempting to reconnect", "error", err)
+
+				if err := s.reconnect(ctx); err != nil {
+					s.log.Error(ctx, "rabbit_reconnect_failed", "Reconnection failed", err)
+					return
+				}
+
+				break consumeLoop
+			case <-s.stop:
+				s.log.Info(ctx, "rabbit_consume_stop", "Stopped listening to notifications")
+				return
 			}
 		}
 	}
 }
 
-func (s *NotificationSubscriber) isAlive(connClose chan struct{}) {
+func (s *NotificationSubscriber) isAlive(ctx context.Context, connClose chan struct{}) {
 	t := time.NewTicker(time.Second * 5)
 
-	select {
-	case <-t.C:
-		if s.reader.Conn.IsClosed() {
-			connClose <- struct{}{}
+	for {
+		select {
+		case <-t.C:
+			if s.reader.Conn.IsClosed() {
+				s.log.Warn(ctx, "rabbit_connection_dead", "Detected closed connection")
+				connClose <- struct{}{}
+				return
+			}
+		case <-s.stop:
+			s.log.Debug(ctx, "is_alive_stop", "Stopped connection health check")
 			return
 		}
-
-		if err := s.reader.Channel.Flow(false); err != nil {
-			connClose <- struct{}{}
-			return
-		}
-	case <-s.stop:
-		return
 	}
 }
 
@@ -156,16 +161,18 @@ func (s *NotificationSubscriber) reconnect(ctx context.Context) error {
 		}
 
 		lastErr = err
-		s.log.Warn(ctx, "rabbit_reconnect_failed", fmt.Sprintf("Attempt %d failed: %v", attempt, err))
+		s.log.Warn(ctx, "rabbit_reconnect_failed", fmt.Sprintf("Attempt %d failed", attempt), err)
 
 		select {
 		case <-s.stop:
+			s.log.Info(ctx, "rabbit_reconnect_stopped", "Reconnect was stopped externally")
 			return fmt.Errorf("reconnect stopped externally")
 		case <-time.After(time.Duration(attempt) * time.Second):
-			// Exponential-ish backoff
+			time.Sleep(2 * time.Second)
 		}
 	}
 
+	s.log.Error(ctx, "rabbit_reconnect_max_failed", "Failed to reconnect after max attempts", lastErr)
 	return fmt.Errorf("failed to reconnect after 5 attempts: %w", lastErr)
 }
 
@@ -174,6 +181,11 @@ func (s *NotificationSubscriber) Close() error {
 	case s.stop <- struct{}{}:
 	default:
 	}
+
+	if _, err := s.reader.Channel.QueueDelete(s.queueName, false, false, true); err != nil {
+		s.log.Warn(context.Background(), "rabbitMQ_closing", "failed to close queue", "error", err)
+	}
+
 	return s.reader.Close()
 }
 
@@ -183,4 +195,51 @@ func decodeStatusUpdate(body []byte) (models.StatusUpdate, error) {
 		return models.StatusUpdate{}, err
 	}
 	return update, nil
+}
+
+func (s *NotificationSubscriber) GetListenerCount() (int, error) {
+	vhost := url.PathEscape("/")
+	exchange := url.PathEscape(s.exchangeName)
+
+	url := fmt.Sprintf(
+		"http://%s:%s@%s:15672/api/exchanges/%s/%s/bindings/source",
+		s.cfg.Conn.User,
+		s.cfg.Conn.Password,
+		s.cfg.Conn.Host,
+		vhost,
+		exchange,
+	)
+
+	resp, err := http.Get(url)
+	if err != nil {
+		return 0, fmt.Errorf("failed to send request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return 0, fmt.Errorf("unexpected status: %s", resp.Status)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return 0, fmt.Errorf("failed to read response: %v", err)
+	}
+
+	var bindings []struct {
+		Destination     string `json:"destination"`
+		DestinationType string `json:"destination_type"`
+	}
+	if err := json.Unmarshal(body, &bindings); err != nil {
+		return 0, fmt.Errorf("failed to parse response: %v", err)
+	}
+
+	// Фильтруем только очереди
+	count := 0
+	for _, b := range bindings {
+		if b.DestinationType == "queue" {
+			count++
+		}
+	}
+
+	return count, nil
 }

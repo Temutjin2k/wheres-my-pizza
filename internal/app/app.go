@@ -57,8 +57,10 @@ func (app *App) Run(ctx context.Context) error {
 }
 
 func (app *App) initService(ctx context.Context, mode types.ServiceMode) error {
-	var service Service
-	var err error
+	var (
+		service Service
+		err     error
+	)
 	switch mode {
 	case types.ModeOrder:
 		service, err = svc.NewOrder(ctx, app.cfg, app.log)

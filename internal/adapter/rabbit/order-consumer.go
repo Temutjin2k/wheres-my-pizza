@@ -130,5 +130,5 @@ func (c *OrderConsumer) Consume(
 
 // isRecoverableError returns true if the provided error must be requeued
 func isRecoverableError(_ error) bool {
-	return false
+	return true
 }

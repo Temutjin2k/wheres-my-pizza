@@ -26,17 +26,19 @@ type (
 	worker struct {
 		name       string
 		orderTypes []string // Comma-separated list of order types the worker can handle (e.g., `dine_in,takeout`). If omitted, handles all.
+		heartbeat  time.Duration
 	}
 )
 
 // NewWorker creates new instance of kitchen-worker service
-func NewWorker(repo WorkerRepository, consumer OrderConsumer, workerName string, orderTypes []string, log logger.Logger) *KitchenWorker {
+func NewWorker(repo WorkerRepository, consumer OrderConsumer, workerName string, orderTypes []string, heatbeat time.Duration, log logger.Logger) *KitchenWorker {
 	return &KitchenWorker{
 		repo:     repo,
 		consumer: consumer,
 		worker: &worker{
 			name:       workerName,
 			orderTypes: orderTypes,
+			heartbeat:  heatbeat,
 		},
 
 		log: log,
@@ -73,14 +75,17 @@ func (s *KitchenWorker) Work(ctx context.Context, errCh chan<- error) {
 		go func(ot string) {
 			defer func() {
 				wg.Done()
-				fmt.Println("CONSUMER ENDED")
+				s.log.Info(ctx, "stop_consume", "stoped consume queue", "order-type", ot)
 			}()
+
 			if err := s.consumer.Consume(ctx, ot, s.proccesOrder); err != nil {
 				errCh <- fmt.Errorf("failed to start conuming: %w", err)
 				return
 			}
 		}(ot)
 	}
+
+	go s.heartbeatLoop(ctx, s.worker.heartbeat)
 
 	wg.Wait()
 }
@@ -91,4 +96,20 @@ func (s *KitchenWorker) proccesOrder(req *models.CreateOrder) error {
 	time.Sleep(types.GetSimulateDuration(req.Type))
 	fmt.Println("AFTER", req)
 	return nil
+}
+
+func (s *KitchenWorker) heartbeatLoop(ctx context.Context, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if err := s.repo.UpdateLastSeen(ctx, s.worker.name); err != nil {
+				s.log.Error(ctx, types.ActionDBQueryFailed, "failed to update last seen on worker", err, "worker-name", s.worker.name)
+			}
+			s.log.Debug(ctx, types.ActionHeartbeatSent, "heatbear was sent", "worker-name", s.worker.name)
+		}
+	}
 }

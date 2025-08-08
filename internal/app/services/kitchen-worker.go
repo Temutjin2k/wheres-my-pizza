@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 	"unicode/utf8"
 
 	"github.com/Temutjin2k/wheres-my-pizza/config"
@@ -23,6 +24,8 @@ var (
 	ErrEmptyOrderTypes    = fmt.Errorf("order types cannot be empty")
 	ErrDuplicateOrderType = fmt.Errorf("duplicate order type found")
 	ErrInvalidOrderType   = errors.New("invalid order type. must be Comma-separated list of order types the worker can handle (e.g., dine_in,takeout)")
+
+	ErrInvalidHeartbeatInterval = errors.New("heartbeat interval must be at least 5 secons")
 )
 
 type KitchenWorker interface {
@@ -50,7 +53,13 @@ func NewKitchen(ctx context.Context, cfg config.Config, log logger.Logger) (*Kit
 		return nil, fmt.Errorf("failed to vailidate provided order types: %w", err)
 	}
 
-	// Postgres database
+	// validate heartbeat interval
+	var heartbeatDuration = time.Duration(cfg.Services.Kitchen.HeartbeatInterval) * time.Second
+	if heartbeatDuration <= time.Second*5 {
+		return nil, ErrInvalidHeartbeatInterval
+	}
+
+	// Postgres database connection
 	db, err := postgresclient.New(ctx, cfg.Postgres)
 	if err != nil {
 		log.Error(ctx, "db_connect", "failed to connect postgres", err)
@@ -69,7 +78,7 @@ func NewKitchen(ctx context.Context, cfg config.Config, log logger.Logger) (*Kit
 	repo := postgres.NewWorkerRepo(db.Pool)
 
 	// Initialize kitchen-worker service
-	kitchenWorker := kitchen.NewWorker(repo, consumer, cfg.Services.Kitchen.WorkerName, validOrderTypes, log)
+	kitchenWorker := kitchen.NewWorker(repo, consumer, cfg.Services.Kitchen.WorkerName, validOrderTypes, heartbeatDuration, log)
 
 	return &KitchenService{
 		postgresDB:    db,

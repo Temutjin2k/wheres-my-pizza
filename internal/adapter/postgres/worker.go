@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/models"
@@ -54,5 +55,9 @@ func (repo *workerRepository) List(ctx context.Context) ([]models.Worker, error)
 }
 
 func (repo *workerRepository) MarkOnline(ctx context.Context, name, orderType string) error {
-	return nil
+	return errors.ErrUnsupported
+}
+
+func (repo *workerRepository) UpdateLastSeen(ctx context.Context, name string) error {
+	return errors.ErrUnsupported
 }

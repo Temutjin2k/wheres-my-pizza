@@ -3,69 +3,92 @@ package kitchen
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
+	"sync"
 	"time"
-	"unicode/utf8"
 
+	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/models"
 	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/types"
+	"github.com/Temutjin2k/wheres-my-pizza/pkg/logger"
 )
 
 type (
-	Service struct {
-		repo WorkerRepository
+	KitchenWorker struct {
+		repo     WorkerRepository
+		consumer OrderConsumer
 
-		worker *worker
+		isWorking bool
+		worker    *worker
+		log       logger.Logger
 	}
 
 	worker struct {
-		Name        string
-		OrderType   string
-		cookingTime time.Duration // Simulating time
+		name       string
+		orderTypes []string // Comma-separated list of order types the worker can handle (e.g., `dine_in,takeout`). If omitted, handles all.
 	}
 )
 
-func NewService(repo WorkerRepository, workerName, orderType string) (*Service, error) {
-	if err := validateWorkerName(workerName); err != nil {
-		return nil, err
-	}
+// NewWorker creates new instance of kitchen-worker service
+func NewWorker(repo WorkerRepository, consumer OrderConsumer, workerName string, orderTypes []string, log logger.Logger) *KitchenWorker {
+	return &KitchenWorker{
+		repo:     repo,
+		consumer: consumer,
+		worker: &worker{
+			name:       workerName,
+			orderTypes: orderTypes,
+		},
 
-	worker := &worker{}
-	switch orderType {
-	case types.OrderTypeDineIn:
-		worker = newWorker(workerName, types.OrderTypeDineIn, types.CookingTimeDineIn)
-	case types.OrderTypeTakeOut:
-		worker = newWorker(workerName, types.OrderTypeTakeOut, types.CookingTimeDineIn)
-	case types.OrderTypeDelivery:
-		worker = newWorker(workerName, types.OrderTypeDelivery, types.CookingTimeDineIn)
-	default:
-		return nil, errors.New("invalid order type")
-	}
-
-	return &Service{
-		repo:   repo,
-		worker: worker,
-	}, nil
-}
-
-func newWorker(name, OrderType string, cookingTime time.Duration) *worker {
-	return &worker{
-		Name:        name,
-		OrderType:   OrderType,
-		cookingTime: cookingTime,
+		log: log,
 	}
 }
 
-func validateWorkerName(name string) error {
-	// Check length (1-100 characters)
-	if utf8.RuneCountInString(name) < 1 || utf8.RuneCountInString(name) > 100 {
-		return errors.New("worker name length must be between 1-100 characters")
+// Work works
+func (s *KitchenWorker) Work(ctx context.Context, errCh chan<- error) {
+	// check if it's already working.
+	if s.isWorking {
+		errCh <- errors.New("worker is already working")
+		return
 	}
-	return nil
-}
+	s.isWorking = true
+	defer func() {
+		s.isWorking = false
+	}()
 
-func (s *Service) Work(ctx context.Context, errCh chan<- error) {
-	if err := s.repo.RegisterOnline(ctx, s.worker.Name, s.worker.OrderType); err != nil {
+	// turning all order types that worker can handle into string to store in database.
+	workerOrderTypes := strings.Join(s.worker.orderTypes, ",")
+
+	// Marking worker as online
+	if err := s.repo.MarkOnline(ctx, s.worker.name, workerOrderTypes); err != nil {
+		s.log.Error(ctx, types.ActionWorkerRegistrationFailed, "failed to mark online worker", err, "worker-name", s.worker.name)
 		errCh <- err
 		return
 	}
+	s.log.Info(ctx, types.ActionWorkerRegistered, "worker was successfully marked online", "worker-name", s.worker.name, "order-types", workerOrderTypes)
 
+	// Start consumining
+	wg := sync.WaitGroup{}
+	for _, ot := range s.worker.orderTypes {
+		wg.Add(1)
+		go func(ot string) {
+			defer func() {
+				wg.Done()
+				fmt.Println("CONSUMER ENDED")
+			}()
+			if err := s.consumer.Consume(ctx, ot, s.proccesOrder); err != nil {
+				errCh <- fmt.Errorf("failed to start conuming: %w", err)
+				return
+			}
+		}(ot)
+	}
+
+	wg.Wait()
+}
+
+// proccesOrder processes created order
+func (s *KitchenWorker) proccesOrder(req *models.CreateOrder) error {
+	fmt.Println("BEFORE", req)
+	time.Sleep(types.GetSimulateDuration(req.Type))
+	fmt.Println("AFTER", req)
+	return nil
 }

@@ -2,6 +2,7 @@ package app
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/Temutjin2k/wheres-my-pizza/config"
 	svc "github.com/Temutjin2k/wheres-my-pizza/internal/app/services"
@@ -73,7 +74,7 @@ func (app *App) initService(ctx context.Context, mode types.ServiceMode) error {
 	}
 
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to init service: %w", err)
 	}
 
 	app.service = service

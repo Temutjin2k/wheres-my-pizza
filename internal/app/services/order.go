@@ -18,8 +18,9 @@ import (
 )
 
 type Order struct {
-	postgresDB *postgresclient.PostgreDB
-	httpServer *httpserver.API
+	postgresDB  *postgresclient.PostgreDB
+	httpServer  *httpserver.API
+	rabbitOrder *rabbit.OrderProducer
 
 	cfg config.Config
 	log logger.Logger
@@ -36,18 +37,19 @@ func NewOrder(ctx context.Context, cfg config.Config, log logger.Logger) (*Order
 
 	orderRepo := postgres.NewOrderRepo(db.Pool)
 
-	writer, err := rabbit.NewClient(ctx, cfg.RabbitMQ)
+	producer, err := rabbit.NewOrderProducer(ctx, cfg.RabbitMQ, log)
 	if err != nil {
-		log.Error(ctx, "rabbit_connect", "failed to connect rabbitmq", err)
+		log.Error(ctx, types.ActionRabbitMQConnected, "failed to connect rabbitmq", err)
 		return nil, fmt.Errorf("failed to connect rabbitmq: %v", err)
 	}
 
-	orderService := order.NewService(orderRepo, writer, log)
+	orderService := order.NewService(orderRepo, producer, log)
 
 	api := httpserver.New(cfg, orderService, nil, log)
 	return &Order{
-		postgresDB: db,
-		httpServer: api,
+		postgresDB:  db,
+		httpServer:  api,
+		rabbitOrder: producer,
 
 		cfg: cfg,
 		log: log,
@@ -81,6 +83,9 @@ func (s *Order) Start(ctx context.Context) error {
 func (s *Order) close(ctx context.Context) {
 	if err := s.httpServer.Stop(ctx); err != nil {
 		s.log.Warn(ctx, types.ActionServiceStop, "failed to shutdown HTTP server")
+	}
+	if err := s.rabbitOrder.Close(); err != nil {
+		s.log.Warn(ctx, types.ActionServiceStop, "failed to close rabbitMQ order client connection")
 	}
 
 	s.postgresDB.Pool.Close()

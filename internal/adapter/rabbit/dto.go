@@ -1,6 +1,11 @@
 package rabbit
 
-import "github.com/Temutjin2k/wheres-my-pizza/internal/domain/models"
+import (
+	"encoding/json"
+	"errors"
+
+	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/models"
+)
 
 // Order represents the structure of an order to be published
 type Order struct {
@@ -46,6 +51,48 @@ func FromInternalToPublishOrder(m *models.CreateOrder) *Order {
 		Items:           publishItems,
 		TotalAmount:     m.TotalAmount,
 		Priority:        m.Priority,
-		Metadata:        nil,
+		Metadata:        nil, // TODO: think how to use
 	}
+}
+
+func FromPublishToInternalOrder(m *Order) *models.CreateOrder {
+	if m == nil {
+		return nil
+	}
+
+	// Convert order items
+	internalItems := make([]models.CreateOrderItem, 0, len(m.Items))
+	for _, item := range m.Items {
+		internalItems = append(internalItems, models.CreateOrderItem{
+			Name:     item.Name,
+			Quantity: item.Quantity,
+			Price:    item.Price,
+		})
+	}
+
+	return &models.CreateOrder{
+		Number:          m.OrderNumber,
+		CustomerName:    m.CustomerName,
+		Type:            m.OrderType,
+		Items:           internalItems,
+		TableNumber:     m.TableNumber,
+		DeliveryAddress: m.DeliveryAddress,
+		TotalAmount:     m.TotalAmount,
+		Priority:        m.Priority,
+		Status:          "", // no status in published message
+	}
+}
+
+func ToInternalOrder(body []byte) (*models.CreateOrder, error) {
+	var publishedOrder Order
+	if err := json.Unmarshal(body, &publishedOrder); err != nil {
+		return nil, err
+	}
+
+	order := FromPublishToInternalOrder(&publishedOrder)
+	if order == nil {
+		return nil, errors.New("failed to map request to internal CreateOrder struct")
+	}
+
+	return order, nil
 }

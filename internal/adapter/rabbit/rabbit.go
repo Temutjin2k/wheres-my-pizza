@@ -82,6 +82,7 @@ func (r *RabbitClient) InitKitchenQueue() error {
 
 	return nil
 }
+
 func (r *RabbitClient) Close() error {
 	if r.client == nil {
 		return nil

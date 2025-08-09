@@ -21,7 +21,7 @@ func NewOrderRepo(pool *pgxpool.Pool) *orderRepository {
 	}
 }
 
-func (r *orderRepository) Create(ctx context.Context, req *models.CreateOrder) (*models.Order, error) {
+func (r *orderRepository) Create(ctx context.Context, req *models.CreateOrder, notes string) (*models.Order, error) {
 	var order models.Order
 
 	// Start a transaction
@@ -152,4 +152,8 @@ func (r *orderRepository) GetAndIncrementSequence(ctx context.Context, date stri
 	}
 
 	return seq, nil
+}
+
+func (r *orderRepository) SetStatus(ctx context.Context, workerName, status string, notes string) error {
+	return nil
 }

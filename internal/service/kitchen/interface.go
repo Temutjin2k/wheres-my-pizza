@@ -16,6 +16,11 @@ type WorkerRepository interface {
 	UpdateLastSeen(ctx context.Context, name string) error
 }
 
+type OrderRepository interface {
+	SetStatus(ctx context.Context, orderID, workerName, status, notes string) error
+	CompleteOrder(ctx context.Context, orderID, workerName, notes string) error
+}
+
 type OrderConsumer interface {
 	Consume(ctx context.Context, orderType string, handler func(req *models.CreateOrder) error) error
 }

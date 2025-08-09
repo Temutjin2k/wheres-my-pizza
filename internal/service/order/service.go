@@ -37,7 +37,7 @@ func (s *Service) CreateOrder(ctx context.Context, req *models.CreateOrder) (*mo
 	req.CalculatePriority()
 	req.Status = types.StatusOrderReceived
 
-	order, err := s.orderRepo.Create(ctx, req)
+	order, err := s.orderRepo.Create(ctx, req, "")
 	if err != nil {
 		s.log.Error(ctx, types.ActionDBTransactionFailed, "failed to create new order", err)
 		return nil, err

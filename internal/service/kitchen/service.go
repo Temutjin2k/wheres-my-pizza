@@ -95,6 +95,7 @@ func (s *KitchenWorker) proccesOrder(req *models.CreateOrder) error {
 	fmt.Println("BEFORE", req)
 	time.Sleep(types.GetSimulateDuration(req.Type))
 	fmt.Println("AFTER", req)
+
 	return nil
 }
 

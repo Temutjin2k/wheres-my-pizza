@@ -84,8 +84,9 @@ type (
 	}
 
 	RabbitMQ struct {
-		Conn          rabbit.Config
-		OrderExchange string `env:"RABBITMQ_ORDER_EXCHANGE" default:"orders_topic"`
+		Conn                  rabbit.Config
+		OrderExchange         string `env:"RABBITMQ_ORDER_EXCHANGE" default:"orders_topic"`
+		NotificationsExchange string `env:"RABBITMQ_NOTIFICATIONS_EXCHANGE" default:"notifications_fanout"`
 	}
 )
 

@@ -16,6 +16,7 @@ const (
 	ActionOrderProcessingStarted = "order_processing_started"
 	ActionOrderCompleted         = "order_completed"
 	ActionHeartbeatSent          = "heartbeat_sent"
+	ActionNotificationReceived   = "notification_received"
 
 	// Error level actions
 	ActionValidationFailed         = "validation_failed"

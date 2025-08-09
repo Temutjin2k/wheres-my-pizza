@@ -58,8 +58,10 @@ func (app *App) Run(ctx context.Context) error {
 }
 
 func (app *App) initService(ctx context.Context, mode types.ServiceMode) error {
-	var service Service
-	var err error
+	var (
+		service Service
+		err     error
+	)
 	switch mode {
 	case types.ModeOrder:
 		service, err = svc.NewOrder(ctx, app.cfg, app.log)
@@ -68,7 +70,7 @@ func (app *App) initService(ctx context.Context, mode types.ServiceMode) error {
 	case types.ModeTracking:
 		service, err = svc.NewTracking(ctx, app.cfg, app.log)
 	case types.ModeNotificationSubscriber:
-		service = svc.NewNotificationSubscriber()
+		service, err = svc.NewNotificationSubscriber(ctx, app.cfg, app.log)
 	default:
 		return ErrInvalidMode
 	}

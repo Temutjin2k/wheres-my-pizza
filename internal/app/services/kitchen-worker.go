@@ -82,13 +82,14 @@ func NewKitchen(ctx context.Context, cfg config.Config, log logger.Logger) (*Kit
 		log.Error(ctx, "order_consumer_create", "failed to create order consumer", err)
 		return nil, fmt.Errorf("failed to create order consumer: %w", err)
 	}
+	producer := rabbit.NewProducerNotify()
 
 	// Initialize repositories
-	_ = postgres.NewWorkerRepo(db.Pool)
-	_ = postgres.NewOrderRepo(db.Pool)
+	workerRepo := postgres.NewWorkerRepo(db.Pool)
+	orderRepo := postgres.NewOrderRepo(db.Pool)
 
 	// Initialize kitchen-worker service
-	kitchenWorker := kitchen.NewWorker(nil, nil, consumer, nil, cfg.Services.Kitchen.WorkerName, validOrderTypes, heartbeatDuration, log)
+	kitchenWorker := kitchen.NewWorker(workerRepo, orderRepo, consumer, producer, cfg.Services.Kitchen.WorkerName, validOrderTypes, heartbeatDuration, log)
 
 	return &KitchenService{
 		postgresDB:    db,

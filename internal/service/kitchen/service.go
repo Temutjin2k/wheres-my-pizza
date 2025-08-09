@@ -131,6 +131,7 @@ func (s *KitchenWorker) Stop(ctx context.Context) {
 	// Mark worker offline
 	if err := s.workerRepo.MarkOffline(ctx, s.worker.name); err != nil {
 		s.log.Error(ctx, types.ActionDBQueryFailed, "failed to mark worker offline", err, "worker-name", s.worker.name)
+		return
 	}
 
 	s.log.Info(ctx, "worker_stop", "stopping worker", "worker-name", s.worker.name)
@@ -139,14 +140,17 @@ func (s *KitchenWorker) Stop(ctx context.Context) {
 // proccesOrder processes created order
 func (s *KitchenWorker) proccesOrder(ctx context.Context, req *models.CreateOrder) error {
 	if req == nil {
+		s.log.Error(ctx, types.ActionValidationFailed, "nil order to proccess", ErrNilOrder, "worker-name", s.worker.name)
 		return ErrNilOrder
 	}
+
+	s.log.Debug(ctx, types.ActionOrderProcessingStarted, "kitchen worker proccessing order", "worker-name", s.worker.name, "order-number", "order-number", req.Number)
 
 	// Set status cooking
 	oldStatus, err := s.orderRepo.SetStatus(ctx, req.Number, s.worker.name, types.StatusOrderCooking, "")
 	if err != nil {
 		s.log.Error(ctx, types.ActionMessageProcessingFailed, "failed to set cooking status for order", err, "worker-name", s.worker.name)
-		return err
+		return fmt.Errorf("failed to set cooking status for order : %w", err)
 	}
 
 	timestamp := time.Now()
@@ -179,11 +183,8 @@ func (s *KitchenWorker) proccesOrder(ctx context.Context, req *models.CreateOrde
 	oldStatus, err = s.orderRepo.SetStatus(ctx, req.Number, s.worker.name, types.StatusOrderReady, "")
 	if err != nil {
 		s.log.Error(ctx, types.ActionMessageProcessingFailed, "failed to set ready status for order", err, "worker-name", s.worker.name)
-		return err
+		return fmt.Errorf("failed to set ready status for order: %w", err)
 	}
-
-	// Must increment field orders_processed in workers table
-	// s.workerRepo.IncrementProcceessed()
 
 	// Publish status update message
 	timestamp = time.Now()
@@ -196,9 +197,19 @@ func (s *KitchenWorker) proccesOrder(ctx context.Context, req *models.CreateOrde
 		Completion:  timestamp, // TODO: what to write for completion
 		RequestID:   requestID,
 	}); err != nil {
-		s.log.Error(ctx, types.ActionRabbitMQPublishFailed, "failed to publish status update", err)
+		s.log.Error(ctx, types.ActionRabbitMQPublishFailed, "failed to publish status update", err, "worker-name", s.worker.name)
+		s.log.Warn(ctx, types.ActionRabbitMQPublishFailed, "order has been proccessed, but ")
 		// TODO: Think what to do, return error or continue
 	}
+
+	// Increment number of proccessed orders by the worker.
+	if err := s.workerRepo.IncrOrdersProcessed(ctx, s.worker.name); err != nil {
+		s.log.Error(ctx, types.ActionMessageProcessingFailed, "failed to increment number of ordered", err, "worker-name", s.worker.name)
+		s.log.Warn(ctx, types.ActionMessageProcessingFailed, "order has been proccessed, but could not increment number of proccessed order for worker in the database")
+		// TODO: Think what to do, return error or continue
+	}
+
+	s.log.Debug(ctx, types.ActionOrderCompleted, "order completed by worker", "worker-name", s.worker.name)
 
 	return nil
 }
@@ -217,7 +228,7 @@ func (s *KitchenWorker) heartbeatLoop(ctx context.Context, interval time.Duratio
 				s.log.Error(ctx, types.ActionDBQueryFailed, "failed to update last seen on worker", err, "worker-name", s.worker.name)
 				continue
 			}
-			s.log.Debug(ctx, types.ActionHeartbeatSent, "heatbear was sent", "worker-name", s.worker.name)
+			s.log.Debug(ctx, types.ActionHeartbeatSent, "heartbeat was sent", "worker-name", s.worker.name)
 		}
 	}
 }

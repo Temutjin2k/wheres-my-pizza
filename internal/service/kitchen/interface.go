@@ -17,12 +17,14 @@ type WorkerRepository interface {
 
 	// UpdateLastSeen updates last seen timestamp
 	UpdateLastSeen(ctx context.Context, name string) error
+
+	// Incerements number of proccessed orders for worker.
+	IncrOrdersProcessed(ctx context.Context, name string) error
 }
 
 type OrderRepository interface {
 	// SetStatus sets new status and returns old status
-	SetStatus(ctx context.Context, orderID, workerName, status, notes string) (string, error)
-	CompleteOrder(ctx context.Context, orderID, workerName, notes string) error
+	SetStatus(ctx context.Context, orderNumber, workerName, status string, notes string) (string, error)
 }
 
 type Consumer interface {

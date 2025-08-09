@@ -184,7 +184,7 @@ func (r *orderRepository) SetStatus(ctx context.Context, orderNumber, workerName
 		orderID   int
 		oldStatus string
 	)
-	if err := tx.QueryRow(ctx, query, status, workerName, orderNumber).Scan(&orderID, &oldStatus); err != nil {
+	if err := tx.QueryRow(ctx, query, status, workerName, orderNumber).Scan(&oldStatus, &orderID); err != nil {
 		tx.Rollback(ctx)
 		if err == pgx.ErrNoRows {
 			return "", models.ErrOrderNotFound
@@ -206,5 +206,5 @@ func (r *orderRepository) SetStatus(ctx context.Context, orderNumber, workerName
 		return "", fmt.Errorf("%s: %v", op, err)
 	}
 
-	return "", tx.Commit(ctx)
+	return oldStatus, tx.Commit(ctx)
 }

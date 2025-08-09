@@ -64,9 +64,10 @@ func (repo *workerRepository) MarkOnline(ctx context.Context, name, orderTypes s
 		ON CONFLICT (name)
 			DO UPDATE
 		SET 
-			status = 'online'
+			status = 'online',
+			type = $2
 		WHERE 
-			workers.status = 'offline' AND name = $1;`
+			workers.status = 'offline' AND workers.name = $1;`
 
 	res, err := repo.pool.Exec(ctx, query, name, orderTypes)
 	if err != nil {

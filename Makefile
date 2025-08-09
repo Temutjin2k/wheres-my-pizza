@@ -27,6 +27,8 @@ migrate-version:
 	migrate -path=./migrations -database "$(DB_URL)" version
 
 
+
+
 up:
 	docker-compose up --build -d
 

@@ -154,6 +154,57 @@ func (r *orderRepository) GetAndIncrementSequence(ctx context.Context, date stri
 	return seq, nil
 }
 
-func (r *orderRepository) SetStatus(ctx context.Context, workerName, status string, notes string) error {
-	return nil
+// SetStatus updates order status and logs it in one transaction.
+func (r *orderRepository) SetStatus(ctx context.Context, orderNumber, workerName, status string, notes string) (string, error) {
+	const op = "orderRepository.SetStatus"
+
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return "", fmt.Errorf("%s: %v", op, err)
+	}
+
+	query := `
+	UPDATE orders AS o
+	SET 
+		status = $1,
+		processed_by = $2,
+		updated_at = now()`
+
+	if status == types.StatusOrderReady {
+		query += ", completed_at = now()"
+	}
+
+	query += `
+	FROM orders AS old
+	WHERE o.id = old.id
+	  AND o.number = $3
+	RETURNING old.status AS old_status, o.id;`
+
+	var (
+		orderID   int
+		oldStatus string
+	)
+	if err := tx.QueryRow(ctx, query, status, workerName, orderNumber).Scan(&orderID, &oldStatus); err != nil {
+		tx.Rollback(ctx)
+		if err == pgx.ErrNoRows {
+			return "", models.ErrOrderNotFound
+		}
+		return "", fmt.Errorf("%s: %v", op, err)
+	}
+
+	query = `
+		INSERT INTO
+			order_status_log (order_id, status, changed_by, notes)
+		VALUES
+			($1, $2, $3, $4);`
+
+	if _, err := tx.Exec(ctx, query, orderID, status, workerName, notes); err != nil {
+		tx.Rollback(ctx)
+		if err == pgx.ErrNoRows {
+			return "", models.ErrOrderNotFound
+		}
+		return "", fmt.Errorf("%s: %v", op, err)
+	}
+
+	return "", tx.Commit(ctx)
 }

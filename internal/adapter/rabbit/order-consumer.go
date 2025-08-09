@@ -22,14 +22,9 @@ type OrderConsumer struct {
 	log logger.Logger
 }
 
-func NewOrderConsumer(ctx context.Context, cfg config.RabbitMQ, prefetchCount int, orderTypes []string, log logger.Logger) (*OrderConsumer, error) {
+func NewOrderConsumer(ctx context.Context, cfg config.RabbitMQ, client *rabbit.RabbitMQ, prefetchCount int, orderTypes []string, log logger.Logger) (*OrderConsumer, error) {
 	if len(orderTypes) == 0 {
 		return nil, errors.New("orderTypes not provided, slice len 0")
-	}
-
-	client, err := rabbit.New(ctx, cfg.Conn)
-	if err != nil {
-		return nil, err
 	}
 
 	// Creating exchange.
@@ -59,14 +54,14 @@ func NewOrderConsumer(ctx context.Context, cfg config.RabbitMQ, prefetchCount in
 		orderTypes:    orderTypes,
 
 		log: log,
-	}, err
+	}, nil
 }
 
 // Consumes consumes created order messages.
 func (c *OrderConsumer) Consume(
 	ctx context.Context,
 	orderType string,
-	handler func(req *models.CreateOrder) error,
+	handler func(ctx context.Context, req *models.CreateOrder) error,
 ) error {
 	// In RabbitMQ, basic.qos is a method used to configure the quality of service for consumers,
 	// specifically by controlling how many messages a consumer can receive without acknowledging them.
@@ -108,7 +103,20 @@ func (c *OrderConsumer) Consume(
 				continue
 			}
 
-			if err := handler(req); err != nil {
+			var ctx context.Context = ctx
+			// request_id logging
+			if len(req.RequestID) != 0 {
+				ctx = logger.WithRequestID(ctx, req.RequestID)
+			}
+
+			order := FromPublishToInternalOrder(req)
+			if order == nil {
+				msg.Nack(false, false)
+				c.log.Error(ctx, types.ActionValidationFailed, "failed to validate message", err)
+				continue
+			}
+
+			if err := handler(ctx, order); err != nil {
 				if isRecoverableError(err) {
 					msg.Nack(false, true) // Requeue
 				} else {

@@ -10,17 +10,25 @@ import (
 type WorkerRepository interface {
 	// MarkOnline marks worker by inserting (or updating) a record in the
 	// workers table with its unique name and type, marking it online.
-	MarkOnline(ctx context.Context, name, orderType string) error
+	MarkOnline(ctx context.Context, name, orderTypes string) error
+
+	// MarkOffline marks worker offline.
+	MarkOffline(ctx context.Context, name string) error
 
 	// UpdateLastSeen updates last seen timestamp
 	UpdateLastSeen(ctx context.Context, name string) error
 }
 
 type OrderRepository interface {
-	SetStatus(ctx context.Context, orderID, workerName, status, notes string) error
+	// SetStatus sets new status and returns old status
+	SetStatus(ctx context.Context, orderID, workerName, status, notes string) (string, error)
 	CompleteOrder(ctx context.Context, orderID, workerName, notes string) error
 }
 
-type OrderConsumer interface {
-	Consume(ctx context.Context, orderType string, handler func(req *models.CreateOrder) error) error
+type Consumer interface {
+	Consume(ctx context.Context, orderType string, handler func(ctx context.Context, req *models.CreateOrder) error) error
+}
+
+type Producer interface {
+	StatusUpdate(ctx context.Context, req *models.StatusUpdate) error
 }

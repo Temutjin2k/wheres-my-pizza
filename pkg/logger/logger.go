@@ -7,6 +7,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/models"
 )
 
 const (
@@ -29,11 +31,6 @@ type logger struct {
 	service  string
 	hostname string
 }
-
-// Context key for request_id (unexported to avoid collisions)
-type ctxKey struct{}
-
-var requestIDKey = &ctxKey{}
 
 // Initialize logger with service name and log level
 func InitLogger(serviceName, logLevel string) Logger {
@@ -99,7 +96,7 @@ func (h *contextHandler) Enabled(ctx context.Context, lvl slog.Level) bool {
 }
 
 func (h *contextHandler) Handle(ctx context.Context, r slog.Record) error {
-	if reqID, ok := ctx.Value(requestIDKey).(string); ok {
+	if reqID, ok := ctx.Value(models.GetRequestIDKey()).(string); ok {
 		r.AddAttrs(slog.String("request_id", reqID))
 	}
 	return h.handler.Handle(ctx, r)
@@ -144,7 +141,7 @@ func (l *logger) GetSlogLogger() *slog.Logger {
 
 // Helper to set request_id in context
 func WithRequestID(ctx context.Context, requestID string) context.Context {
-	return context.WithValue(ctx, requestIDKey, requestID)
+	return context.WithValue(ctx, models.GetRequestIDKey(), requestID)
 }
 
 // getStack return stack info

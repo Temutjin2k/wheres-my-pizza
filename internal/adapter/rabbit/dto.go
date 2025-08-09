@@ -1,23 +1,23 @@
 package rabbit
 
 import (
+	"context"
 	"encoding/json"
-	"errors"
 
 	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/models"
 )
 
 // Order represents the structure of an order to be published
 type Order struct {
-	OrderNumber     string         `json:"order_number"`
-	CustomerName    string         `json:"customer_name"`
-	OrderType       string         `json:"order_type"`
-	TableNumber     *int           `json:"table_number,omitempty"` // pointer to allow null in JSON
-	DeliveryAddress *string        `json:"delivery_address,omitempty"`
-	Items           []OrderItem    `json:"items"`
-	TotalAmount     float64        `json:"total_amount"`
-	Priority        int            `json:"priority"`
-	Metadata        map[string]any `json:"metadata,omitempty"`
+	OrderNumber     string      `json:"order_number"`
+	CustomerName    string      `json:"customer_name"`
+	OrderType       string      `json:"order_type"`
+	TableNumber     *int        `json:"table_number,omitempty"`
+	DeliveryAddress *string     `json:"delivery_address,omitempty"`
+	Items           []OrderItem `json:"items"`
+	TotalAmount     float64     `json:"total_amount"`
+	Priority        int         `json:"priority"`
+	RequestID       string      `json:"request_id,omitempty"`
 }
 
 // OrderItem represents an item in the order
@@ -27,7 +27,7 @@ type OrderItem struct {
 	Price    float64 `json:"price"`
 }
 
-func FromInternalToPublishOrder(m *models.CreateOrder) *Order {
+func FromInternalToPublishOrder(ctx context.Context, m *models.CreateOrder) *Order {
 	if m == nil {
 		return nil
 	}
@@ -42,6 +42,11 @@ func FromInternalToPublishOrder(m *models.CreateOrder) *Order {
 		})
 	}
 
+	var requestID string
+	if reqID, ok := ctx.Value(models.GetRequestIDKey()).(string); ok {
+		requestID = reqID
+	}
+
 	return &Order{
 		OrderNumber:     m.Number,
 		CustomerName:    m.CustomerName,
@@ -51,7 +56,7 @@ func FromInternalToPublishOrder(m *models.CreateOrder) *Order {
 		Items:           publishItems,
 		TotalAmount:     m.TotalAmount,
 		Priority:        m.Priority,
-		Metadata:        nil, // TODO: think how to use
+		RequestID:       requestID,
 	}
 }
 
@@ -83,16 +88,16 @@ func FromPublishToInternalOrder(m *Order) *models.CreateOrder {
 	}
 }
 
-func ToInternalOrder(body []byte) (*models.CreateOrder, error) {
-	var publishedOrder Order
-	if err := json.Unmarshal(body, &publishedOrder); err != nil {
+func ToInternalOrder(body []byte) (*Order, error) {
+	publishedOrder := &Order{}
+	if err := json.Unmarshal(body, publishedOrder); err != nil {
 		return nil, err
 	}
 
-	order := FromPublishToInternalOrder(&publishedOrder)
-	if order == nil {
-		return nil, errors.New("failed to map request to internal CreateOrder struct")
-	}
+	// order := FromPublishToInternalOrder(&publishedOrder)
+	// if order == nil {
+	// 	return nil, errors.New("failed to map request to internal CreateOrder struct")
+	// }
 
-	return order, nil
+	return publishedOrder, nil
 }

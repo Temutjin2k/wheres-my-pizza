@@ -18,6 +18,7 @@ import (
 	"github.com/Temutjin2k/wheres-my-pizza/internal/service/kitchen"
 	"github.com/Temutjin2k/wheres-my-pizza/pkg/logger"
 	postgresclient "github.com/Temutjin2k/wheres-my-pizza/pkg/postgres"
+	rabbitclient "github.com/Temutjin2k/wheres-my-pizza/pkg/rabbit"
 )
 
 var (
@@ -25,16 +26,18 @@ var (
 	ErrDuplicateOrderType = fmt.Errorf("duplicate order type found")
 	ErrInvalidOrderType   = errors.New("invalid order type. must be Comma-separated list of order types the worker can handle (e.g., dine_in,takeout)")
 
-	ErrInvalidHeartbeatInterval = errors.New("heartbeat interval must be at least 5 secons")
+	ErrInvalidHeartbeatInterval = errors.New("heartbeat interval must be at least 5 seconds")
 )
 
 type KitchenWorker interface {
 	Work(ctx context.Context, errCh chan<- error)
+	Stop(ctx context.Context)
 }
 
 type KitchenService struct {
 	postgresDB    *postgresclient.PostgreDB
 	kitchenWorker KitchenWorker
+	rabbitClient  *rabbitclient.RabbitMQ
 
 	cfg config.Config
 	log logger.Logger
@@ -67,22 +70,30 @@ func NewKitchen(ctx context.Context, cfg config.Config, log logger.Logger) (*Kit
 	}
 	log.Info(ctx, types.ActionDBConnected, "connected to the database")
 
+	// RabbitMQ connection
+	rabbitClient, err := rabbitclient.New(ctx, cfg.RabbitMQ.Conn)
+	if err != nil {
+		return nil, err
+	}
+
 	// Initialize consumer
-	consumer, err := rabbit.NewOrderConsumer(ctx, cfg.RabbitMQ, cfg.Services.Kitchen.Prefetch, validOrderTypes, log)
+	consumer, err := rabbit.NewOrderConsumer(ctx, cfg.RabbitMQ, rabbitClient, cfg.Services.Kitchen.Prefetch, validOrderTypes, log)
 	if err != nil {
 		log.Error(ctx, "order_consumer_create", "failed to create order consumer", err)
 		return nil, fmt.Errorf("failed to create order consumer: %w", err)
 	}
 
-	// Initialize repository
-	repo := postgres.NewWorkerRepo(db.Pool)
+	// Initialize repositories
+	_ = postgres.NewWorkerRepo(db.Pool)
+	_ = postgres.NewOrderRepo(db.Pool)
 
 	// Initialize kitchen-worker service
-	kitchenWorker := kitchen.NewWorker(repo, consumer, cfg.Services.Kitchen.WorkerName, validOrderTypes, heartbeatDuration, log)
+	kitchenWorker := kitchen.NewWorker(nil, nil, consumer, nil, cfg.Services.Kitchen.WorkerName, validOrderTypes, heartbeatDuration, log)
 
 	return &KitchenService{
 		postgresDB:    db,
 		kitchenWorker: kitchenWorker,
+		rabbitClient:  rabbitClient,
 
 		cfg: cfg,
 		log: log,
@@ -107,14 +118,21 @@ func (s *KitchenService) Start(ctx context.Context) error {
 	case sig := <-shutdownCh:
 		s.log.Info(ctx, types.ActionGracefulShutdown, "shuting down application", "signal", sig.String())
 
-		s.close()
+		s.close(ctx)
 		s.log.Info(ctx, types.ActionGracefulShutdown, "graceful shutdown completed!")
 	}
 
 	return nil
 }
 
-func (s *KitchenService) close() {
+// close stops worker and closes connections.
+func (s *KitchenService) close(ctx context.Context) {
+	s.kitchenWorker.Stop(ctx)
+
+	if err := s.rabbitClient.Close(); err != nil {
+		s.log.Error(ctx, types.ActionGracefulShutdown, "failed to close rabbit connection", err)
+	}
+
 	s.postgresDB.Pool.Close()
 }
 

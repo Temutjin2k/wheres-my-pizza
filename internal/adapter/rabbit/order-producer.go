@@ -74,7 +74,7 @@ func (r *OrderProducer) PublishCreateOrder(ctx context.Context, order *models.Cr
 	}
 
 	// Marshal order to JSON
-	body, err := json.Marshal(FromInternalToPublishOrder(order))
+	body, err := json.Marshal(FromInternalToPublishOrder(ctx, order))
 	if err != nil {
 		r.log.Error(ctx, types.ActionValidationFailed, "failed to marshal", err)
 		return fmt.Errorf("failed to marshal order: %w", err)

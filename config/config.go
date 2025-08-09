@@ -27,7 +27,7 @@ var (
 
 	// Kitchen service
 	workerName   = flag.String("worker-name", "", "unique name for the worker (e.g., chef_mario) (required)")
-	orderTypes   = flag.String("order-types", "all", "comma-separated list of order types the worker can handle (e.g., dine_in,takeout)")
+	orderTypes   = flag.String("order-types", "", "comma-separated list of order types the worker can handle (e.g., dine_in,takeout)")
 	heartbeatInt = flag.Int("heartbeat-interval", 30, "interval (seconds) between heartbeats")
 	prefetch     = flag.Int("prefetch", 1, "RabbitMQ prefetch count")
 )
@@ -78,7 +78,7 @@ type (
 
 	KitchenService struct {
 		WorkerName        string
-		OrderType         string
+		OrderTypes        string
 		Prefetch          int
 		HeartbeatInterval int
 	}
@@ -86,7 +86,6 @@ type (
 	RabbitMQ struct {
 		Conn                  rabbit.Config
 		OrderExchange         string `env:"RABBITMQ_ORDER_EXCHANGE" default:"orders_topic"`
-		OrderQueue            string `env:"RABBITMQ_ORDER_QUEUE" default:"orders_topic"`
 		NotificationsExchange string `env:"RABBITMQ_NOTIFICATIONS_EXCHANGE" default:"notifications_fanout"`
 	}
 )
@@ -138,7 +137,7 @@ func parseFlags(cfg *Config) error {
 		}
 
 		cfg.Services.Kitchen.WorkerName = *workerName
-		cfg.Services.Kitchen.OrderType = *orderTypes
+		cfg.Services.Kitchen.OrderTypes = *orderTypes
 		cfg.Services.Kitchen.HeartbeatInterval = *heartbeatInt
 		cfg.Services.Kitchen.Prefetch = *prefetch
 	case types.ModeTracking:

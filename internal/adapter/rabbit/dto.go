@@ -1,18 +1,23 @@
 package rabbit
 
-import "github.com/Temutjin2k/wheres-my-pizza/internal/domain/models"
+import (
+	"context"
+	"encoding/json"
+
+	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/models"
+)
 
 // Order represents the structure of an order to be published
 type Order struct {
-	OrderNumber     string         `json:"order_number"`
-	CustomerName    string         `json:"customer_name"`
-	OrderType       string         `json:"order_type"`
-	TableNumber     *int           `json:"table_number,omitempty"` // pointer to allow null in JSON
-	DeliveryAddress *string        `json:"delivery_address,omitempty"`
-	Items           []OrderItem    `json:"items"`
-	TotalAmount     float64        `json:"total_amount"`
-	Priority        int            `json:"priority"`
-	Metadata        map[string]any `json:"metadata,omitempty"`
+	OrderNumber     string      `json:"order_number"`
+	CustomerName    string      `json:"customer_name"`
+	OrderType       string      `json:"order_type"`
+	TableNumber     *int        `json:"table_number,omitempty"`
+	DeliveryAddress *string     `json:"delivery_address,omitempty"`
+	Items           []OrderItem `json:"items"`
+	TotalAmount     float64     `json:"total_amount"`
+	Priority        int         `json:"priority"`
+	RequestID       string      `json:"request_id,omitempty"`
 }
 
 // OrderItem represents an item in the order
@@ -22,7 +27,7 @@ type OrderItem struct {
 	Price    float64 `json:"price"`
 }
 
-func FromInternalToPublishOrder(m *models.CreateOrder) *Order {
+func FromInternalToPublishOrder(ctx context.Context, m *models.CreateOrder) *Order {
 	if m == nil {
 		return nil
 	}
@@ -37,6 +42,11 @@ func FromInternalToPublishOrder(m *models.CreateOrder) *Order {
 		})
 	}
 
+	var requestID string
+	if reqID, ok := ctx.Value(models.GetRequestIDKey()).(string); ok {
+		requestID = reqID
+	}
+
 	return &Order{
 		OrderNumber:     m.Number,
 		CustomerName:    m.CustomerName,
@@ -46,6 +56,48 @@ func FromInternalToPublishOrder(m *models.CreateOrder) *Order {
 		Items:           publishItems,
 		TotalAmount:     m.TotalAmount,
 		Priority:        m.Priority,
-		Metadata:        nil,
+		RequestID:       requestID,
 	}
+}
+
+func FromPublishToInternalOrder(m *Order) *models.CreateOrder {
+	if m == nil {
+		return nil
+	}
+
+	// Convert order items
+	internalItems := make([]models.CreateOrderItem, 0, len(m.Items))
+	for _, item := range m.Items {
+		internalItems = append(internalItems, models.CreateOrderItem{
+			Name:     item.Name,
+			Quantity: item.Quantity,
+			Price:    item.Price,
+		})
+	}
+
+	return &models.CreateOrder{
+		Number:          m.OrderNumber,
+		CustomerName:    m.CustomerName,
+		Type:            m.OrderType,
+		Items:           internalItems,
+		TableNumber:     m.TableNumber,
+		DeliveryAddress: m.DeliveryAddress,
+		TotalAmount:     m.TotalAmount,
+		Priority:        m.Priority,
+		Status:          "", // no status in published message
+	}
+}
+
+func ToInternalOrder(body []byte) (*Order, error) {
+	publishedOrder := &Order{}
+	if err := json.Unmarshal(body, publishedOrder); err != nil {
+		return nil, err
+	}
+
+	// order := FromPublishToInternalOrder(&publishedOrder)
+	// if order == nil {
+	// 	return nil, errors.New("failed to map request to internal CreateOrder struct")
+	// }
+
+	return publishedOrder, nil
 }

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/models"
+	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/types"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -20,7 +21,7 @@ func NewOrderRepo(pool *pgxpool.Pool) *orderRepository {
 	}
 }
 
-func (r *orderRepository) Create(ctx context.Context, req *models.CreateOrder) (*models.Order, error) {
+func (r *orderRepository) Create(ctx context.Context, req *models.CreateOrder, notes string) (*models.Order, error) {
 	var order models.Order
 
 	// Start a transaction
@@ -93,6 +94,19 @@ func (r *orderRepository) Create(ctx context.Context, req *models.CreateOrder) (
 		}
 	}
 
+	// Log initial status
+	_, err = tx.Exec(ctx,
+		`INSERT INTO order_status_log (
+			order_id,
+			status
+		) VALUES ($1, $2)`,
+		order.ID,
+		types.StatusOrderReceived, // 'received'
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to log initial order status: %w", err)
+	}
+
 	// Commit the transaction
 	if err := tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
@@ -138,4 +152,59 @@ func (r *orderRepository) GetAndIncrementSequence(ctx context.Context, date stri
 	}
 
 	return seq, nil
+}
+
+// SetStatus updates order status and logs it in one transaction.
+func (r *orderRepository) SetStatus(ctx context.Context, orderNumber, workerName, status string, notes string) (string, error) {
+	const op = "orderRepository.SetStatus"
+
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return "", fmt.Errorf("%s: %v", op, err)
+	}
+
+	query := `
+	UPDATE orders AS o
+	SET 
+		status = $1,
+		processed_by = $2,
+		updated_at = now()`
+
+	if status == types.StatusOrderReady {
+		query += ", completed_at = now()"
+	}
+
+	query += `
+	FROM orders AS old
+	WHERE o.id = old.id
+	  AND o.number = $3
+	RETURNING old.status AS old_status, o.id;`
+
+	var (
+		orderID   int
+		oldStatus string
+	)
+	if err := tx.QueryRow(ctx, query, status, workerName, orderNumber).Scan(&oldStatus, &orderID); err != nil {
+		tx.Rollback(ctx)
+		if err == pgx.ErrNoRows {
+			return "", models.ErrOrderNotFound
+		}
+		return "", fmt.Errorf("%s: %v", op, err)
+	}
+
+	query = `
+		INSERT INTO
+			order_status_log (order_id, status, changed_by, notes)
+		VALUES
+			($1, $2, $3, $4);`
+
+	if _, err := tx.Exec(ctx, query, orderID, status, workerName, notes); err != nil {
+		tx.Rollback(ctx)
+		if err == pgx.ErrNoRows {
+			return "", models.ErrOrderNotFound
+		}
+		return "", fmt.Errorf("%s: %v", op, err)
+	}
+
+	return oldStatus, tx.Commit(ctx)
 }

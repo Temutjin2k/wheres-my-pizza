@@ -64,7 +64,7 @@ func (h *Order) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := writeJSON(w, http.StatusCreated, response, nil); err != nil {
-		h.log.Error(ctx, types.ActionOrderReceived, "failed to write response", err)
+		h.log.Error(ctx, types.ActionValidationFailed, "failed to write response", err)
 		internalErrorResponse(w, err)
 	}
 }

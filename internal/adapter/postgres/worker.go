@@ -52,3 +52,100 @@ func (repo *workerRepository) List(ctx context.Context) ([]models.Worker, error)
 	}
 	return workers, nil
 }
+
+// MarkOnline marks a worker as online by inserting or updating its record.
+// If the worker already exists and is online, registration fails.
+func (repo *workerRepository) MarkOnline(ctx context.Context, name, orderTypes string) error {
+	const op = "workerRepository.MarkOnline"
+
+	query := `
+		INSERT INTO workers (name, type)
+		VALUES ($1, $2)
+		ON CONFLICT (name)
+			DO UPDATE
+		SET 
+			status = 'online',
+			type = $2
+		WHERE 
+			workers.status = 'offline' AND workers.name = $1;`
+
+	res, err := repo.pool.Exec(ctx, query, name, orderTypes)
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	if res.RowsAffected() == 0 {
+		return fmt.Errorf("%s: %v", op, models.ErrWorkerAlreadyOnline)
+	}
+
+	return nil
+}
+
+func (repo *workerRepository) UpdateLastSeen(ctx context.Context, name string) error {
+	const op = "workerRepository.UpdateLastSeen"
+
+	query := `
+		UPDATE 
+			workers
+		SET 
+			last_seen = now()
+		WHERE 
+			name = $1;`
+
+	res, err := repo.pool.Exec(ctx, query, name)
+	if err != nil {
+		return fmt.Errorf("%s: %v", op, err)
+	}
+
+	if res.RowsAffected() == 0 {
+		return models.ErrOrderNotFound
+	}
+
+	return nil
+}
+
+func (repo *workerRepository) IncrOrdersProcessed(ctx context.Context, name string) error {
+	const op = "workerRepository.IncrOrdersProcessed"
+
+	query := `
+		UPDATE 
+			workers
+		SET 
+			orders_processed = orders_processed + 1
+		WHERE 
+			name = $1;`
+
+	res, err := repo.pool.Exec(ctx, query, name)
+	if err != nil {
+		return fmt.Errorf("%s: %v", op, err)
+	}
+
+	if res.RowsAffected() == 0 {
+		return models.ErrOrderNotFound
+	}
+
+	return nil
+}
+
+func (repo *workerRepository) MarkOffline(ctx context.Context, name string) error {
+	const op = "workerRepository.MarkOffline"
+
+	query := `
+		UPDATE 
+			workers
+		SET 
+			status = 'offline'
+		WHERE 
+			name = $1;`
+
+	res, err := repo.pool.Exec(ctx, query, name)
+	if err != nil {
+		return fmt.Errorf("%s: %v", op, err)
+	}
+
+	if res.RowsAffected() == 0 {
+		return models.ErrOrderNotFound
+	}
+
+	return nil
+}

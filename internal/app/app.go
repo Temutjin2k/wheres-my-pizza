@@ -2,6 +2,7 @@ package app
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/Temutjin2k/wheres-my-pizza/config"
 	svc "github.com/Temutjin2k/wheres-my-pizza/internal/app/services"
@@ -65,7 +66,7 @@ func (app *App) initService(ctx context.Context, mode types.ServiceMode) error {
 	case types.ModeOrder:
 		service, err = svc.NewOrder(ctx, app.cfg, app.log)
 	case types.ModeKitchenWorker:
-		service = svc.NewKitchen()
+		service, err = svc.NewKitchen(ctx, app.cfg, app.log)
 	case types.ModeTracking:
 		service, err = svc.NewTracking(ctx, app.cfg, app.log)
 	case types.ModeNotificationSubscriber:
@@ -75,7 +76,7 @@ func (app *App) initService(ctx context.Context, mode types.ServiceMode) error {
 	}
 
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to init service: %w", err)
 	}
 
 	app.service = service

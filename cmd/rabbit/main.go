@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"log"
+	"time"
 
 	"github.com/Temutjin2k/wheres-my-pizza/config"
 	writer "github.com/Temutjin2k/wheres-my-pizza/internal/adapter/rabbit"
 	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/models"
 	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/types"
+	"github.com/Temutjin2k/wheres-my-pizza/pkg/logger"
 )
 
 func main() {
@@ -21,14 +23,19 @@ func main() {
 
 	config.PrintConfig(cfg)
 
-	writer, err := writer.NewClient(ctx, cfg.RabbitMQ)
+	logger := logger.InitLogger("rabbit_producer", logger.LevelDebug)
+
+	writer, err := writer.NewOrderProducer(ctx, cfg.RabbitMQ, logger)
 	if err != nil {
 		log.Fatal("failed to create")
 	}
+
+	ctx, cancel := context.WithTimeout(ctx, time.Second*7)
+	defer cancel()
 	if err := writer.PublishCreateOrder(ctx, &models.CreateOrder{
 		Number:          "ORD_20241216_001",
 		CustomerName:    "John Doe",
-		Type:            types.OrderTypeDelivery,
+		Type:            types.OrderTypeTakeOut,
 		TableNumber:     nil,
 		DeliveryAddress: ptrString("123 Main St, City"),
 		Items: []models.CreateOrderItem{
@@ -44,7 +51,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	log.Println("PUBLISHED ORDER")
+	logger.Info(ctx, types.ActionOrderPublished, "PUBLISHED")
 }
 
 func ptrString(s string) *string {

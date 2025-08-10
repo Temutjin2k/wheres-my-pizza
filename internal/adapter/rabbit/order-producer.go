@@ -19,15 +19,12 @@ type OrderProducer struct {
 	client *rabbit.RabbitMQ
 
 	exchangeOrder string
-	log           logger.Logger
+
+	cfg config.RabbitMQ
+	log logger.Logger
 }
 
-func NewOrderProducer(ctx context.Context, cfg config.RabbitMQ, log logger.Logger) (*OrderProducer, error) {
-	client, err := rabbit.New(ctx, cfg.Conn)
-	if err != nil {
-		return nil, err
-	}
-
+func NewOrderProducer(ctx context.Context, cfg config.RabbitMQ, client *rabbit.RabbitMQ, log logger.Logger) (*OrderProducer, error) {
 	// Creating exchange.
 	if err := client.Channel.ExchangeDeclare(
 		cfg.OrderExchange,
@@ -43,31 +40,28 @@ func NewOrderProducer(ctx context.Context, cfg config.RabbitMQ, log logger.Logge
 
 	// creating all possible queues and binding them to order exchange.
 	if err := InitQueuesForOrderTypes(client, cfg.OrderExchange, types.AllOrderTypes); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to init order queues: %w", err)
 	}
 
 	return &OrderProducer{
 		client:        client,
 		exchangeOrder: cfg.OrderExchange,
+		cfg:           cfg,
 		log:           log,
-	}, err
-}
-
-func (r *OrderProducer) Close() error {
-	if r.client == nil {
-		return nil
-	}
-	if err := r.client.Close(); err != nil {
-		return err
-	}
-	r.client = nil
-	return nil
+	}, nil
 }
 
 // PublishCreateOrder publishes an order message to the orders_topic exchange
 func (r *OrderProducer) PublishCreateOrder(ctx context.Context, order *models.CreateOrder) error {
 	if order == nil {
 		return errors.New("nil order")
+	}
+
+	if r.client.IsConnectionClosed() {
+		r.log.Debug(ctx, "recconect", "trying to recconect to RabbitMQ")
+		if err := r.reconnect(ctx); err != nil {
+			return fmt.Errorf("failed to reconnect to rabbitMQ: %w", err)
+		}
 	}
 
 	// Marshal order to JSON
@@ -103,4 +97,22 @@ func (r *OrderProducer) PublishCreateOrder(ctx context.Context, order *models.Cr
 	}
 
 	return nil
+}
+
+func (r *OrderProducer) reconnect(ctx context.Context) error {
+	conn, err := rabbit.New(ctx, r.cfg.Conn, r.log)
+	if err != nil {
+		return err
+	}
+	r.client = conn
+
+	return nil
+}
+
+func (r *OrderProducer) Close(ctx context.Context) error {
+	if r.client == nil {
+		return nil
+	}
+
+	return r.client.Close(ctx)
 }

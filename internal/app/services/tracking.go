@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/Temutjin2k/wheres-my-pizza/config"
 	httpserver "github.com/Temutjin2k/wheres-my-pizza/internal/adapter/http/server"
@@ -75,6 +76,9 @@ func (s *Tracking) Start(ctx context.Context) error {
 }
 
 func (s *Tracking) close(ctx context.Context) {
+	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
+	defer cancel()
+
 	if err := s.httpServer.Stop(ctx); err != nil {
 		s.log.Warn(ctx, types.ActionGracefulShutdown, "failed to shutdown HTTP server")
 	}

@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/Temutjin2k/wheres-my-pizza/config"
 	httpserver "github.com/Temutjin2k/wheres-my-pizza/internal/adapter/http/server"
@@ -15,12 +16,13 @@ import (
 	"github.com/Temutjin2k/wheres-my-pizza/internal/service/order"
 	"github.com/Temutjin2k/wheres-my-pizza/pkg/logger"
 	postgresclient "github.com/Temutjin2k/wheres-my-pizza/pkg/postgres"
+	rabbitclient "github.com/Temutjin2k/wheres-my-pizza/pkg/rabbit"
 )
 
 type Order struct {
-	postgresDB  *postgresclient.PostgreDB
-	httpServer  *httpserver.API
-	rabbitOrder *rabbit.OrderProducer
+	postgresDB   *postgresclient.PostgreDB
+	httpServer   *httpserver.API
+	rabbitClient *rabbitclient.RabbitMQ
 
 	cfg config.Config
 	log logger.Logger
@@ -35,9 +37,16 @@ func NewOrder(ctx context.Context, cfg config.Config, log logger.Logger) (*Order
 	}
 	log.Info(ctx, types.ActionDBConnected, "connected to the database")
 
+	// RabbitMQ connection
+	rabbitClient, err := rabbitclient.New(ctx, cfg.RabbitMQ.Conn, log)
+	if err != nil {
+		log.Error(ctx, types.ActionRabbitConnectionFailed, "failed to connect RabbitMQ", err)
+		return nil, err
+	}
+
 	orderRepo := postgres.NewOrderRepo(db.Pool)
 
-	producer, err := rabbit.NewOrderProducer(ctx, cfg.RabbitMQ, log)
+	producer, err := rabbit.NewOrderProducer(ctx, cfg.RabbitMQ, rabbitClient, log)
 	if err != nil {
 		log.Error(ctx, types.ActionRabbitConnectionFailed, "failed to connect rabbitmq", err)
 		return nil, fmt.Errorf("failed to connect rabbitmq: %v", err)
@@ -48,9 +57,9 @@ func NewOrder(ctx context.Context, cfg config.Config, log logger.Logger) (*Order
 
 	api := httpserver.New(cfg, orderService, nil, log)
 	return &Order{
-		postgresDB:  db,
-		httpServer:  api,
-		rabbitOrder: producer,
+		postgresDB:   db,
+		httpServer:   api,
+		rabbitClient: rabbitClient,
 
 		cfg: cfg,
 		log: log,
@@ -82,10 +91,14 @@ func (s *Order) Start(ctx context.Context) error {
 }
 
 func (s *Order) close(ctx context.Context) {
+	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
+	defer cancel()
+
 	if err := s.httpServer.Stop(ctx); err != nil {
 		s.log.Warn(ctx, types.ActionGracefulShutdown, "failed to shutdown HTTP server")
 	}
-	if err := s.rabbitOrder.Close(); err != nil {
+	//
+	if err := s.rabbitClient.Close(ctx); err != nil {
 		s.log.Warn(ctx, types.ActionGracefulShutdown, "failed to close rabbitMQ order client connection")
 	}
 

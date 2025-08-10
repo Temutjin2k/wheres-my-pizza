@@ -155,7 +155,7 @@ func (s *NotificationSubscriber) reconnect(ctx context.Context) error {
 	for attempt := 1; attempt <= 5; attempt++ {
 		s.log.Info(ctx, "rabbit_reconnect_attempt", fmt.Sprintf("Attempt %d to reconnect", attempt))
 
-		conn, err := rabbit.New(ctx, s.cfg.Conn)
+		conn, err := rabbit.New(ctx, s.cfg.Conn, s.log)
 		if err == nil {
 			s.reader = conn
 			s.log.Info(ctx, "rabbit_reconnect_success", "Successfully reconnected to RabbitMQ")
@@ -188,7 +188,10 @@ func (s *NotificationSubscriber) Close() error {
 		s.log.Warn(context.Background(), "rabbitMQ_closing", "failed to close queue", "error", err)
 	}
 
-	return s.reader.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+
+	return s.reader.Close(ctx)
 }
 
 func decodeStatusUpdate(body []byte) (models.StatusUpdate, error) {

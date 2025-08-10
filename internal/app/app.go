@@ -29,11 +29,15 @@ type App struct {
 }
 
 // NewApplication
-func NewApplication(ctx context.Context, cfg config.Config, logger logger.Logger) (*App, error) {
+func NewApplication(ctx context.Context, cfg config.Config, log logger.Logger) (*App, error) {
+	if cfg.Flags.Mode != "" {
+		log = logger.InitLogger(string(cfg.Flags.Mode), logger.LevelDebug)
+	}
+
 	app := &App{
 		mode: cfg.Flags.Mode,
 		cfg:  cfg,
-		log:  logger,
+		log:  log,
 	}
 
 	if err := app.initService(ctx, app.mode); err != nil {

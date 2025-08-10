@@ -18,7 +18,6 @@ import (
 	"github.com/Temutjin2k/wheres-my-pizza/internal/service/kitchen"
 	"github.com/Temutjin2k/wheres-my-pizza/pkg/logger"
 	postgresclient "github.com/Temutjin2k/wheres-my-pizza/pkg/postgres"
-	rabbitclient "github.com/Temutjin2k/wheres-my-pizza/pkg/rabbit"
 )
 
 var (
@@ -37,7 +36,8 @@ type KitchenWorker interface {
 type KitchenService struct {
 	postgresDB    *postgresclient.PostgreDB
 	kitchenWorker KitchenWorker
-	rabbitClient  *rabbitclient.RabbitMQ
+	consumer      *rabbit.OrderConsumer
+	producer      *rabbit.NotificationProducer
 
 	cfg config.Config
 	log logger.Logger
@@ -71,20 +71,14 @@ func NewKitchen(ctx context.Context, cfg config.Config, log logger.Logger) (*Kit
 	log.Info(ctx, types.ActionDBConnected, "connected to the database")
 
 	// RabbitMQ connection
-	rabbitClient, err := rabbitclient.New(ctx, cfg.RabbitMQ.Conn)
-	if err != nil {
-		log.Error(ctx, types.ActionRabbitConnectionFailed, "failed to connect RabbitMQ", err)
-		return nil, err
-	}
-
 	// Initialize order consumer
-	consumer, err := rabbit.NewOrderConsumer(ctx, cfg.RabbitMQ.OrderExchange, rabbitClient, cfg.Services.Kitchen.Prefetch, validOrderTypes, log)
+	consumer, err := rabbit.NewOrderConsumer(ctx, cfg.RabbitMQ, cfg.Services.Kitchen.Prefetch, validOrderTypes, log)
 	if err != nil {
 		log.Error(ctx, types.ActionRabbitConnectionFailed, "failed to create order consumer", err)
 		return nil, fmt.Errorf("failed to create order consumer: %w", err)
 	}
 	// Initialize notification producer
-	producer, err := rabbit.NewProducerNotify(rabbitClient, cfg.RabbitMQ.NotificationsExchange, log)
+	producer, err := rabbit.NewProducerNotify(ctx, cfg.RabbitMQ, log)
 	if err != nil {
 		log.Error(ctx, types.ActionRabbitConnectionFailed, "failed to create notification producer", err)
 		return nil, fmt.Errorf("failed to create notification producer: %w", err)
@@ -103,7 +97,8 @@ func NewKitchen(ctx context.Context, cfg config.Config, log logger.Logger) (*Kit
 	return &KitchenService{
 		postgresDB:    db,
 		kitchenWorker: kitchenWorker,
-		rabbitClient:  rabbitClient,
+		consumer:      consumer,
+		producer:      producer,
 
 		cfg: cfg,
 		log: log,
@@ -137,9 +132,16 @@ func (s *KitchenService) Start(ctx context.Context) error {
 
 // close stops worker and closes connections.
 func (s *KitchenService) close(ctx context.Context) {
+	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
+	defer cancel()
+
 	s.kitchenWorker.Stop(ctx)
 
-	if err := s.rabbitClient.Close(); err != nil {
+	if err := s.producer.Close(ctx); err != nil {
+		s.log.Error(ctx, types.ActionGracefulShutdown, "failed to close rabbit connection", err)
+	}
+
+	if err := s.consumer.Close(ctx); err != nil {
 		s.log.Error(ctx, types.ActionGracefulShutdown, "failed to close rabbit connection", err)
 	}
 

@@ -65,10 +65,11 @@ func (a *API) Stop(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	a.log.Info(ctx, "http_server_stop", "shutting down HTTP server...", "address", a.addr)
+	a.log.Debug(ctx, "http_server_stop", "shutting down HTTP server...", "address", a.addr)
 	if err := a.server.Shutdown(ctx); err != nil {
 		return fmt.Errorf("error shutting down server: %w", err)
 	}
+	a.log.Debug(ctx, "http_server_stop", "shutting down HTTP server completed")
 
 	return nil
 }

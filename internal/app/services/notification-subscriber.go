@@ -28,7 +28,7 @@ type Service interface {
 }
 
 func NewNotificationSubscriber(ctx context.Context, cfg config.Config, log logger.Logger) (*NotificationSubsriber, error) {
-	client, err := pkg.New(ctx, cfg.RabbitMQ.Conn)
+	client, err := pkg.New(ctx, cfg.RabbitMQ.Conn, log)
 	if err != nil {
 		log.Error(ctx, "rabbit_connect", "failed to connect rabbitmq", err)
 		return nil, fmt.Errorf("failed to connect rabbitmq: %v", err)

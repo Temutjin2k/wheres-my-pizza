@@ -173,6 +173,7 @@ func (s *KitchenWorker) proccesOrder(ctx context.Context, req *models.CreateOrde
 		RequestID:   requestID,
 	}); err != nil {
 		s.log.Error(ctx, types.ActionRabbitMQPublishFailed, "failed to publish status update", err)
+		s.log.Warn(ctx, types.ActionMessageProcessingFailed, "order status changed to cooking, but could not increment number of proccessed order for worker in the database")
 		// TODO: Think what to do, return error or continue
 	}
 
@@ -198,7 +199,7 @@ func (s *KitchenWorker) proccesOrder(ctx context.Context, req *models.CreateOrde
 		RequestID:   requestID,
 	}); err != nil {
 		s.log.Error(ctx, types.ActionRabbitMQPublishFailed, "failed to publish status update", err, "worker-name", s.worker.name)
-		s.log.Warn(ctx, types.ActionRabbitMQPublishFailed, "order has been proccessed, but ")
+		s.log.Warn(ctx, types.ActionRabbitMQPublishFailed, "order has been proccessed, but failed to publish status update")
 		// TODO: Think what to do, return error or continue
 	}
 

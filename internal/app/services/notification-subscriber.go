@@ -58,13 +58,13 @@ func (s *NotificationSubsriber) Start(ctx context.Context) error {
 	case errRun := <-errCh:
 		return errRun
 	case sig := <-shutdownCh:
-		s.log.Info(ctx, types.ActionServiceStop, "shuting down application", "signal", sig.String())
+		s.log.Info(ctx, types.ActionGracefulShutdown, "shuting down application", "signal", sig.String())
 
 		if err := s.close(); err != nil {
-			s.log.Error(ctx, types.ActionServiceStop, "failed to close service", err)
+			s.log.Error(ctx, types.ActionGracefulShutdown, "failed to close service", err)
 		}
 
-		s.log.Info(ctx, types.ActionServiceStop, "graceful shutdown completed!")
+		s.log.Info(ctx, types.ActionGracefulShutdown, "graceful shutdown completed!")
 	}
 
 	return nil

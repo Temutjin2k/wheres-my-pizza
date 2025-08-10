@@ -65,7 +65,7 @@ func NewKitchen(ctx context.Context, cfg config.Config, log logger.Logger) (*Kit
 	// Postgres database connection
 	db, err := postgresclient.New(ctx, cfg.Postgres)
 	if err != nil {
-		log.Error(ctx, "db_connect", "failed to connect postgres", err)
+		log.Error(ctx, types.ActionDBConnectionFailed, "failed to connect postgres", err)
 		return nil, fmt.Errorf("failed to connect postgres: %v", err)
 	}
 	log.Info(ctx, types.ActionDBConnected, "connected to the database")
@@ -73,16 +73,25 @@ func NewKitchen(ctx context.Context, cfg config.Config, log logger.Logger) (*Kit
 	// RabbitMQ connection
 	rabbitClient, err := rabbitclient.New(ctx, cfg.RabbitMQ.Conn)
 	if err != nil {
+		log.Error(ctx, types.ActionRabbitConnectionFailed, "failed to connect RabbitMQ", err)
 		return nil, err
 	}
 
-	// Initialize consumer
-	consumer, err := rabbit.NewOrderConsumer(ctx, cfg.RabbitMQ, rabbitClient, cfg.Services.Kitchen.Prefetch, validOrderTypes, log)
+	// Initialize order consumer
+	consumer, err := rabbit.NewOrderConsumer(ctx, cfg.RabbitMQ.OrderExchange, rabbitClient, cfg.Services.Kitchen.Prefetch, validOrderTypes, log)
 	if err != nil {
-		log.Error(ctx, "order_consumer_create", "failed to create order consumer", err)
+		log.Error(ctx, types.ActionRabbitConnectionFailed, "failed to create order consumer", err)
 		return nil, fmt.Errorf("failed to create order consumer: %w", err)
 	}
-	producer := rabbit.NewProducerNotify()
+	// Initialize notification producer
+	producer, err := rabbit.NewProducerNotify(rabbitClient, cfg.RabbitMQ.NotificationsExchange, log)
+	if err != nil {
+		log.Error(ctx, types.ActionRabbitConnectionFailed, "failed to create notification producer", err)
+		return nil, fmt.Errorf("failed to create notification producer: %w", err)
+	}
+
+	// log RabbitMQ connection
+	log.Info(ctx, types.ActionRabbitMQConnected, "connected to rabbitMQ")
 
 	// Initialize repositories
 	workerRepo := postgres.NewWorkerRepo(db.Pool)

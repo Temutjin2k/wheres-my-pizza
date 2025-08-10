@@ -12,8 +12,8 @@ import (
 )
 
 func (a *API) withMiddleware() http.Handler {
-	return a.RequestLoggingMiddleware(
-		a.RequestIDMiddleware(a.mux),
+	return a.RequestIDMiddleware(
+		a.RequestLoggingMiddleware(a.mux),
 	)
 }
 

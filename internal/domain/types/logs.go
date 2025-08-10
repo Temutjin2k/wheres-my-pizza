@@ -3,7 +3,6 @@ package types
 const (
 	// Info level actions
 	ActionServiceStarted    = "service_started"
-	ActionServiceStop       = "service_stop"
 	ActionDBConnected       = "db_connected"
 	ActionRabbitMQConnected = "rabbitmq_connected"
 	ActionWorkerRegistered  = "worker_registered"
@@ -26,4 +25,5 @@ const (
 	ActionWorkerRegistrationFailed = "worker_registration_failed"
 	ActionMessageProcessingFailed  = "message_processing_failed"
 	ActionDBConnectionFailed       = "db_connection_failed"
+	ActionRabbitConnectionFailed   = "rabbitmq_connection_failed"
 )

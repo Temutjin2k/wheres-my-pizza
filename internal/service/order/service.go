@@ -2,6 +2,7 @@ package order
 
 import (
 	"context"
+	"math/rand"
 	"time"
 
 	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/models"
@@ -26,10 +27,14 @@ func NewService(repo OrderRepository, writer MessageBroker, log logger.Logger) *
 
 // CreateOrder creates new order
 func (s *Service) CreateOrder(ctx context.Context, req *models.CreateOrder) (*models.OrderCreatedInfo, error) {
+	s.log.Debug(ctx, types.ActionOrderReceived, "new order received", "")
+
 	today := todayDate()
 	number, err := s.orderRepo.GetAndIncrementSequence(ctx, today)
 	if err != nil {
-		return nil, err
+		s.log.Error(ctx, types.ActionDBQueryFailed, "failed to get next order sequence.", err)
+		// fallback mechanism
+		number = getRandomOrderNumber()
 	}
 
 	req.SetNumber(today, number)
@@ -37,6 +42,7 @@ func (s *Service) CreateOrder(ctx context.Context, req *models.CreateOrder) (*mo
 	req.CalculatePriority()
 	req.Status = types.StatusOrderReceived
 
+	// Store order to database
 	order, err := s.orderRepo.Create(ctx, req, "")
 	if err != nil {
 		s.log.Error(ctx, types.ActionDBTransactionFailed, "failed to create new order", err)
@@ -47,8 +53,7 @@ func (s *Service) CreateOrder(ctx context.Context, req *models.CreateOrder) (*mo
 	if err := retry(5, time.Second, func() error {
 		return s.writer.PublishCreateOrder(ctx, req)
 	}); err != nil {
-		s.log.Error(ctx, types.ActionDBQueryFailed, "order stored to database, but not sended to writer", err)
-		// TODO: think how to handle: maybe remove from database order that just created.
+		s.log.Error(ctx, types.ActionDBQueryFailed, "order stored to database, but not produced to writer", err)
 		return nil, err
 	}
 
@@ -57,6 +62,11 @@ func (s *Service) CreateOrder(ctx context.Context, req *models.CreateOrder) (*mo
 		Status:      order.Status,
 		TotalAmount: order.TotalAmount,
 	}, nil
+}
+
+// Generate a random number between 10000 and 99999 (inclusive)
+func getRandomOrderNumber() int {
+	return rand.Intn(90000) + 10000
 }
 
 func todayDate() string {

@@ -26,7 +26,17 @@ migrate-down:
 migrate-version:
 	migrate -path=./migrations -database "$(DB_URL)" version
 
+order-service-run:
+	go run ./cmd/restaurant/ --mode=order-service --port=3000
 
+kitchen-worker-run:
+	go run ./cmd/restaurant/ --mode=kitchen-worker --worker-name="chef_anna" --prefetch=1
+
+tracking-service-run:
+	go run ./cmd/restaurant/ --mode=tracking-service --port=3002
+
+notification-subscriber-run:
+	go run ./cmd/restaurant/ --mode=notification-subscriber
 
 
 up:

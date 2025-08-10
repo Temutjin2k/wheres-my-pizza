@@ -39,9 +39,10 @@ func NewOrder(ctx context.Context, cfg config.Config, log logger.Logger) (*Order
 
 	producer, err := rabbit.NewOrderProducer(ctx, cfg.RabbitMQ, log)
 	if err != nil {
-		log.Error(ctx, types.ActionRabbitMQConnected, "failed to connect rabbitmq", err)
+		log.Error(ctx, types.ActionRabbitConnectionFailed, "failed to connect rabbitmq", err)
 		return nil, fmt.Errorf("failed to connect rabbitmq: %v", err)
 	}
+	log.Info(ctx, types.ActionRabbitMQConnected, "connected to rabbitMQ")
 
 	orderService := order.NewService(orderRepo, producer, log)
 
@@ -71,10 +72,10 @@ func (s *Order) Start(ctx context.Context) error {
 	case errRun := <-errCh:
 		return errRun
 	case sig := <-shutdownCh:
-		s.log.Info(ctx, types.ActionServiceStop, "shuting down application", "signal", sig.String())
+		s.log.Info(ctx, types.ActionGracefulShutdown, "shuting down application", "signal", sig.String())
 
 		s.close(ctx)
-		s.log.Info(ctx, types.ActionServiceStop, "graceful shutdown completed!")
+		s.log.Info(ctx, types.ActionGracefulShutdown, "graceful shutdown completed!")
 	}
 
 	return nil
@@ -82,10 +83,10 @@ func (s *Order) Start(ctx context.Context) error {
 
 func (s *Order) close(ctx context.Context) {
 	if err := s.httpServer.Stop(ctx); err != nil {
-		s.log.Warn(ctx, types.ActionServiceStop, "failed to shutdown HTTP server")
+		s.log.Warn(ctx, types.ActionGracefulShutdown, "failed to shutdown HTTP server")
 	}
 	if err := s.rabbitOrder.Close(); err != nil {
-		s.log.Warn(ctx, types.ActionServiceStop, "failed to close rabbitMQ order client connection")
+		s.log.Warn(ctx, types.ActionGracefulShutdown, "failed to close rabbitMQ order client connection")
 	}
 
 	s.postgresDB.Pool.Close()

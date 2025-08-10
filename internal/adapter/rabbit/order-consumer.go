@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/Temutjin2k/wheres-my-pizza/config"
 	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/models"
 	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/types"
 	"github.com/Temutjin2k/wheres-my-pizza/pkg/logger"
@@ -22,14 +21,14 @@ type OrderConsumer struct {
 	log logger.Logger
 }
 
-func NewOrderConsumer(ctx context.Context, cfg config.RabbitMQ, client *rabbit.RabbitMQ, prefetchCount int, orderTypes []string, log logger.Logger) (*OrderConsumer, error) {
+func NewOrderConsumer(ctx context.Context, exchange string, client *rabbit.RabbitMQ, prefetchCount int, orderTypes []string, log logger.Logger) (*OrderConsumer, error) {
 	if len(orderTypes) == 0 {
 		return nil, errors.New("orderTypes not provided, slice len 0")
 	}
 
 	// Creating exchange.
 	if err := client.Channel.ExchangeDeclare(
-		cfg.OrderExchange,
+		exchange,
 		"topic",
 		true,
 		false,
@@ -40,17 +39,14 @@ func NewOrderConsumer(ctx context.Context, cfg config.RabbitMQ, client *rabbit.R
 		return nil, fmt.Errorf("failed to declare exchange: %w", err)
 	}
 
-	if err := InitQueuesForOrderTypes(client, cfg.OrderExchange, orderTypes); err != nil {
+	if err := InitQueuesForOrderTypes(client, exchange, orderTypes); err != nil {
 		return nil, err
 	}
-
-	// logging connection
-	log.Info(ctx, types.ActionRabbitMQConnected, "connected to rabbitMQ")
 
 	return &OrderConsumer{
 		client:        client,
 		prefetchCount: prefetchCount,
-		exchangeOrder: cfg.OrderExchange,
+		exchangeOrder: exchange,
 		orderTypes:    orderTypes,
 
 		log: log,
@@ -103,7 +99,6 @@ func (c *OrderConsumer) Consume(
 				continue
 			}
 
-			var ctx context.Context = ctx
 			// request_id logging
 			if len(req.RequestID) != 0 {
 				ctx = logger.WithRequestID(ctx, req.RequestID)

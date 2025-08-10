@@ -103,7 +103,9 @@ func (s *NotificationSubscriber) startConsuming(ctx context.Context, outCh chan 
 				update, err := decodeStatusUpdate(msg.Body)
 				if err != nil {
 					s.log.Error(ctx, "notification_decode", "Failed to decode status update", err)
-					_ = msg.Nack(false, false)
+					if err := msg.Nack(false, false); err != nil {
+						s.log.Error(ctx, "rabbit_ack", "Failed to ack message", err)
+					}
 					continue
 				}
 

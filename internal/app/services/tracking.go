@@ -65,10 +65,10 @@ func (s *Tracking) Start(ctx context.Context) error {
 	case errRun := <-errCh:
 		return errRun
 	case sig := <-shutdownCh:
-		s.log.Info(ctx, types.ActionServiceStop, "shuting down application", "signal", sig.String())
+		s.log.Info(ctx, types.ActionGracefulShutdown, "shuting down application", "signal", sig.String())
 
 		s.close(ctx)
-		s.log.Info(ctx, types.ActionServiceStop, "graceful shutdown completed!")
+		s.log.Info(ctx, types.ActionGracefulShutdown, "graceful shutdown completed!")
 	}
 
 	return nil
@@ -76,7 +76,7 @@ func (s *Tracking) Start(ctx context.Context) error {
 
 func (s *Tracking) close(ctx context.Context) {
 	if err := s.httpServer.Stop(ctx); err != nil {
-		s.log.Warn(ctx, types.ActionServiceStop, "failed to shutdown HTTP server")
+		s.log.Warn(ctx, types.ActionGracefulShutdown, "failed to shutdown HTTP server")
 	}
 
 	s.postgresDB.Pool.Close()

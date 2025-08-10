@@ -46,9 +46,6 @@ func NewOrderProducer(ctx context.Context, cfg config.RabbitMQ, log logger.Logge
 		return nil, err
 	}
 
-	// logging connection
-	log.Info(ctx, types.ActionRabbitMQConnected, "connected to rabbitMQ")
-
 	return &OrderProducer{
 		client:        client,
 		exchangeOrder: cfg.OrderExchange,

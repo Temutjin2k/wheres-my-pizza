@@ -33,6 +33,11 @@ type KitchenWorker interface {
 	Stop(ctx context.Context)
 }
 
+// Feature: Order Service
+// The Kitchen Worker is a background service that simulates the kitchen staff. It consumes order
+// messages from a queue, processes them, and updates their status in the database. It is the core
+// processing engine of the restaurant. Multiple worker instances can run concurrently to handle
+// high order volumes and can be specialized to process specific types of orders.
 type KitchenService struct {
 	postgresDB    *postgresclient.PostgreDB
 	kitchenWorker KitchenWorker
@@ -83,9 +88,6 @@ func NewKitchen(ctx context.Context, cfg config.Config, log logger.Logger) (*Kit
 		log.Error(ctx, types.ActionRabbitConnectionFailed, "failed to create notification producer", err)
 		return nil, fmt.Errorf("failed to create notification producer: %w", err)
 	}
-
-	// log RabbitMQ connection
-	log.Info(ctx, types.ActionRabbitMQConnected, "connected to rabbitMQ")
 
 	// Initialize repositories
 	workerRepo := postgres.NewWorkerRepo(db.Pool)

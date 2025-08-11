@@ -16,13 +16,17 @@ import (
 	"github.com/Temutjin2k/wheres-my-pizza/internal/service/order"
 	"github.com/Temutjin2k/wheres-my-pizza/pkg/logger"
 	postgresclient "github.com/Temutjin2k/wheres-my-pizza/pkg/postgres"
-	rabbitclient "github.com/Temutjin2k/wheres-my-pizza/pkg/rabbit"
 )
 
+// Feature: Order Service
+// The Order Service is the public-facing entry point of the restaurant system. Its primary responsibility is
+// to receive new orders from customers via an HTTP API, validate them, store them in the database, and publish
+// them to a message queue for the kitchen staff to process. It acts as the gatekeeper, ensuring all incoming
+// data is correct and formatted before entering the system.
 type Order struct {
-	postgresDB   *postgresclient.PostgreDB
-	httpServer   *httpserver.API
-	rabbitClient *rabbitclient.RabbitMQ
+	postgresDB *postgresclient.PostgreDB
+	httpServer *httpserver.API
+	producer   *rabbit.OrderProducer
 
 	cfg config.Config
 	log logger.Logger
@@ -38,28 +42,21 @@ func NewOrder(ctx context.Context, cfg config.Config, log logger.Logger) (*Order
 	log.Info(ctx, types.ActionDBConnected, "connected to the database")
 
 	// RabbitMQ connection
-	rabbitClient, err := rabbitclient.New(ctx, cfg.RabbitMQ.Conn, log)
-	if err != nil {
-		log.Error(ctx, types.ActionRabbitConnectionFailed, "failed to connect RabbitMQ", err)
-		return nil, err
-	}
-
 	orderRepo := postgres.NewOrderRepo(db.Pool)
 
-	producer, err := rabbit.NewOrderProducer(ctx, cfg.RabbitMQ, rabbitClient, log)
+	producer, err := rabbit.NewOrderProducer(ctx, cfg.RabbitMQ, log)
 	if err != nil {
 		log.Error(ctx, types.ActionRabbitConnectionFailed, "failed to connect rabbitmq", err)
 		return nil, fmt.Errorf("failed to connect rabbitmq: %v", err)
 	}
-	log.Info(ctx, types.ActionRabbitMQConnected, "connected to rabbitMQ")
 
 	orderService := order.NewService(orderRepo, producer, log)
 
 	api := httpserver.New(cfg, orderService, nil, log)
 	return &Order{
-		postgresDB:   db,
-		httpServer:   api,
-		rabbitClient: rabbitClient,
+		postgresDB: db,
+		httpServer: api,
+		producer:   producer,
 
 		cfg: cfg,
 		log: log,
@@ -97,8 +94,8 @@ func (s *Order) close(ctx context.Context) {
 	if err := s.httpServer.Stop(ctx); err != nil {
 		s.log.Warn(ctx, types.ActionGracefulShutdown, "failed to shutdown HTTP server")
 	}
-	//
-	if err := s.rabbitClient.Close(ctx); err != nil {
+
+	if err := s.producer.Close(ctx); err != nil {
 		s.log.Warn(ctx, types.ActionGracefulShutdown, "failed to close rabbitMQ order client connection")
 	}
 

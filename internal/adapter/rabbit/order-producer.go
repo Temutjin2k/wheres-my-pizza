@@ -24,7 +24,14 @@ type OrderProducer struct {
 	log logger.Logger
 }
 
-func NewOrderProducer(ctx context.Context, cfg config.RabbitMQ, client *rabbit.RabbitMQ, log logger.Logger) (*OrderProducer, error) {
+func NewOrderProducer(ctx context.Context, cfg config.RabbitMQ, log logger.Logger) (*OrderProducer, error) {
+	// RabbitMQ connection
+	client, err := rabbit.New(ctx, cfg.Conn, log)
+	if err != nil {
+		log.Error(ctx, types.ActionRabbitConnectionFailed, "failed to connect RabbitMQ", err)
+		return nil, err
+	}
+
 	// Creating exchange.
 	if err := client.Channel.ExchangeDeclare(
 		cfg.OrderExchange,

@@ -17,6 +17,12 @@ import (
 	postgresclient "github.com/Temutjin2k/wheres-my-pizza/pkg/postgres"
 )
 
+// ## Feature: Tracking Service
+// The Tracking Service provides visibility into the restaurant's operations.
+// It offers a read-only HTTP API for external clients (like a customer-facing
+// app or an internal dashboard) to query the current status of orders, view an
+// order's history, and monitor the status of all kitchen workers. It directly
+// queries the database and does not interact with RabbitMQ.
 type Tracking struct {
 	postgresDB *postgresclient.PostgreDB
 	httpServer *httpserver.API

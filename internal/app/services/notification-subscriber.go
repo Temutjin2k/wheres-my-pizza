@@ -15,6 +15,12 @@ import (
 	pkg "github.com/Temutjin2k/wheres-my-pizza/pkg/rabbit"
 )
 
+// ## Feature: Notification Service
+// The Notification Service is a simple subscriber that demonstrates the fanout
+// capabilities of the messaging system. It listens for all order status updates
+// published by the Kitchen Workers and displays them. In a real-world scenario,
+// this service could be extended to send push notifications, emails, or SMS
+// messages to customers.
 type NotificationSubsriber struct {
 	service Service
 

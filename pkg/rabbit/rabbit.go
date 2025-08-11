@@ -65,6 +65,8 @@ func New(ctx context.Context, config Config, log logger.Logger) (*RabbitMQ, erro
 		// Connection is good
 	}
 
+	log.Info(ctx, types.ActionRabbitMQConnected, "connected to rabbitMQ")
+
 	r := &RabbitMQ{
 		Conn:      conn,
 		Channel:   channel,

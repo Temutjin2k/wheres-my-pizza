@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/Temutjin2k/wheres-my-pizza/config"
 	httpserver "github.com/Temutjin2k/wheres-my-pizza/internal/adapter/http/server"
@@ -17,10 +18,15 @@ import (
 	postgresclient "github.com/Temutjin2k/wheres-my-pizza/pkg/postgres"
 )
 
+// Feature: Order Service
+// The Order Service is the public-facing entry point of the restaurant system. Its primary responsibility is
+// to receive new orders from customers via an HTTP API, validate them, store them in the database, and publish
+// them to a message queue for the kitchen staff to process. It acts as the gatekeeper, ensuring all incoming
+// data is correct and formatted before entering the system.
 type Order struct {
-	postgresDB  *postgresclient.PostgreDB
-	httpServer  *httpserver.API
-	rabbitOrder *rabbit.OrderProducer
+	postgresDB *postgresclient.PostgreDB
+	httpServer *httpserver.API
+	producer   *rabbit.OrderProducer
 
 	cfg config.Config
 	log logger.Logger
@@ -35,6 +41,7 @@ func NewOrder(ctx context.Context, cfg config.Config, log logger.Logger) (*Order
 	}
 	log.Info(ctx, types.ActionDBConnected, "connected to the database")
 
+	// RabbitMQ connection
 	orderRepo := postgres.NewOrderRepo(db.Pool)
 
 	producer, err := rabbit.NewOrderProducer(ctx, cfg.RabbitMQ, log)
@@ -42,15 +49,14 @@ func NewOrder(ctx context.Context, cfg config.Config, log logger.Logger) (*Order
 		log.Error(ctx, types.ActionRabbitConnectionFailed, "failed to connect rabbitmq", err)
 		return nil, fmt.Errorf("failed to connect rabbitmq: %v", err)
 	}
-	log.Info(ctx, types.ActionRabbitMQConnected, "connected to rabbitMQ")
 
 	orderService := order.NewService(orderRepo, producer, log)
 
 	api := httpserver.New(cfg, orderService, nil, log)
 	return &Order{
-		postgresDB:  db,
-		httpServer:  api,
-		rabbitOrder: producer,
+		postgresDB: db,
+		httpServer: api,
+		producer:   producer,
 
 		cfg: cfg,
 		log: log,
@@ -61,6 +67,11 @@ func (s *Order) Start(ctx context.Context) error {
 	errCh := make(chan error, 1)
 
 	s.httpServer.Run(ctx, errCh)
+
+	defer func() {
+		s.close(ctx)
+		s.log.Info(ctx, types.ActionGracefulShutdown, "order service closed")
+	}()
 
 	// Waiting signal
 	shutdownCh := make(chan os.Signal, 1)
@@ -73,19 +84,19 @@ func (s *Order) Start(ctx context.Context) error {
 		return errRun
 	case sig := <-shutdownCh:
 		s.log.Info(ctx, types.ActionGracefulShutdown, "shuting down application", "signal", sig.String())
-
-		s.close(ctx)
-		s.log.Info(ctx, types.ActionGracefulShutdown, "graceful shutdown completed!")
+		return nil
 	}
-
-	return nil
 }
 
 func (s *Order) close(ctx context.Context) {
+	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
+	defer cancel()
+
 	if err := s.httpServer.Stop(ctx); err != nil {
 		s.log.Warn(ctx, types.ActionGracefulShutdown, "failed to shutdown HTTP server")
 	}
-	if err := s.rabbitOrder.Close(); err != nil {
+
+	if err := s.producer.Close(ctx); err != nil {
 		s.log.Warn(ctx, types.ActionGracefulShutdown, "failed to close rabbitMQ order client connection")
 	}
 

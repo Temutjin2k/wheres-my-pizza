@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/Temutjin2k/wheres-my-pizza/config"
 	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/models"
 	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/types"
 	"github.com/Temutjin2k/wheres-my-pizza/pkg/logger"
@@ -18,17 +19,25 @@ type OrderConsumer struct {
 	exchangeOrder string
 	orderTypes    []string
 
+	cfg config.RabbitMQ
 	log logger.Logger
 }
 
-func NewOrderConsumer(ctx context.Context, exchange string, client *rabbit.RabbitMQ, prefetchCount int, orderTypes []string, log logger.Logger) (*OrderConsumer, error) {
+func NewOrderConsumer(ctx context.Context, cfg config.RabbitMQ, prefetchCount int, orderTypes []string, log logger.Logger) (*OrderConsumer, error) {
 	if len(orderTypes) == 0 {
 		return nil, errors.New("orderTypes not provided, slice len 0")
 	}
 
+	// RabbitMQ connection
+	client, err := rabbit.New(ctx, cfg.Conn, log)
+	if err != nil {
+		log.Error(ctx, types.ActionRabbitConnectionFailed, "failed to connect RabbitMQ", err)
+		return nil, err
+	}
+
 	// Creating exchange.
 	if err := client.Channel.ExchangeDeclare(
-		exchange,
+		cfg.OrderExchange,
 		"topic",
 		true,
 		false,
@@ -39,16 +48,17 @@ func NewOrderConsumer(ctx context.Context, exchange string, client *rabbit.Rabbi
 		return nil, fmt.Errorf("failed to declare exchange: %w", err)
 	}
 
-	if err := InitQueuesForOrderTypes(client, exchange, orderTypes); err != nil {
+	if err := InitQueuesForOrderTypes(client, cfg.OrderExchange, orderTypes); err != nil {
 		return nil, err
 	}
 
 	return &OrderConsumer{
 		client:        client,
 		prefetchCount: prefetchCount,
-		exchangeOrder: exchange,
+		exchangeOrder: cfg.OrderExchange,
 		orderTypes:    orderTypes,
 
+		cfg: cfg,
 		log: log,
 	}, nil
 }
@@ -59,6 +69,14 @@ func (c *OrderConsumer) Consume(
 	orderType string,
 	handler func(ctx context.Context, req *models.CreateOrder) error,
 ) error {
+	// Cheking if connected
+	if c.client.IsConnectionClosed() {
+		c.log.Debug(ctx, "recconect", "trying to recconect to RabbitMQ")
+		if err := c.reconnect(ctx); err != nil {
+			return fmt.Errorf("failed to reconnect to rabbitMQ: %w", err)
+		}
+	}
+
 	// In RabbitMQ, basic.qos is a method used to configure the quality of service for consumers,
 	// specifically by controlling how many messages a consumer can receive without acknowledging them.
 	// Using basic.qos is critical to prevent worker overload and distribute the load evenly between workers.
@@ -89,6 +107,7 @@ func (c *OrderConsumer) Consume(
 			return nil
 		case msg, ok := <-msgs:
 			if !ok {
+				c.log.Debug(ctx, "order_consumer_stop", "stopped consumimg messages")
 				return nil
 			}
 
@@ -124,6 +143,24 @@ func (c *OrderConsumer) Consume(
 			msg.Ack(false)
 		}
 	}
+}
+
+func (r *OrderConsumer) reconnect(ctx context.Context) error {
+	conn, err := rabbit.New(ctx, r.cfg.Conn, r.log)
+	if err != nil {
+		return err
+	}
+	r.client = conn
+
+	return nil
+}
+
+func (r *OrderConsumer) Close(ctx context.Context) error {
+	if r.client == nil || r.client.IsConnectionClosed() {
+		return nil
+	}
+
+	return r.client.Close(ctx)
 }
 
 // - If any processing step fails (e.g., database unavailable), the worker must negatively acknowledge the

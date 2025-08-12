@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Temutjin2k/wheres-my-pizza/config"
 	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/models"
+	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/types"
 	"github.com/Temutjin2k/wheres-my-pizza/pkg/logger"
 	"github.com/Temutjin2k/wheres-my-pizza/pkg/rabbit"
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -15,37 +17,56 @@ import (
 
 var ErrEmptyExchangeName = errors.New("empty exchange name")
 
-// notificationProducer
-type notificationProducer struct {
+// NotificationProducer
+type NotificationProducer struct {
 	client *rabbit.RabbitMQ
 
 	exchangeName string
-	log          logger.Logger
+
+	cfg config.RabbitMQ
+	log logger.Logger
 }
 
-func NewProducerNotify(client *rabbit.RabbitMQ, exchange string, log logger.Logger) (*notificationProducer, error) {
-	if len(exchange) == 0 {
+func NewProducerNotify(ctx context.Context, cfg config.RabbitMQ, log logger.Logger) (*NotificationProducer, error) {
+	if len(cfg.NotificationsExchange) == 0 {
 		return nil, ErrEmptyExchangeName
+	}
+
+	// RabbitMQ connection
+	client, err := rabbit.New(ctx, cfg.Conn, log)
+	if err != nil {
+		log.Error(ctx, types.ActionRabbitConnectionFailed, "failed to connect RabbitMQ", err)
+		return nil, err
 	}
 
 	// declaring notification exchange
 	if err := client.Channel.ExchangeDeclare(
-		exchange,
+		cfg.NotificationsExchange,
 		"fanout",
 		true, false, false, false, nil,
 	); err != nil {
-		return nil, fmt.Errorf("failed to declare exchange %s: %w", exchange, err)
+		return nil, fmt.Errorf("failed to declare exchange %s: %w", cfg.NotificationsExchange, err)
 	}
 
-	return &notificationProducer{
+	return &NotificationProducer{
 		client:       client,
-		exchangeName: exchange,
-		log:          log,
+		exchangeName: cfg.NotificationsExchange,
+
+		cfg: cfg,
+		log: log,
 	}, nil
 }
 
 // StatusUpdate publishes event about status change.
-func (p *notificationProducer) StatusUpdate(ctx context.Context, req *models.StatusUpdate) error {
+func (p *NotificationProducer) StatusUpdate(ctx context.Context, req *models.StatusUpdate) error {
+	// Cheking if connected
+	if p.client.IsConnectionClosed() {
+		p.log.Debug(ctx, "recconect", "trying to recconect to RabbitMQ")
+		if err := p.reconnect(ctx); err != nil {
+			return fmt.Errorf("failed to reconnect to rabbitMQ: %w", err)
+		}
+	}
+
 	// Marshal the struct to JSON
 	body, err := json.Marshal(req)
 	if err != nil {
@@ -73,4 +94,22 @@ func (p *notificationProducer) StatusUpdate(ctx context.Context, req *models.Sta
 	}
 
 	return nil
+}
+
+func (r *NotificationProducer) reconnect(ctx context.Context) error {
+	conn, err := rabbit.New(ctx, r.cfg.Conn, r.log)
+	if err != nil {
+		return err
+	}
+	r.client = conn
+
+	return nil
+}
+
+func (r *NotificationProducer) Close(ctx context.Context) error {
+	if r.client == nil {
+		return nil
+	}
+
+	return r.client.Close(ctx)
 }

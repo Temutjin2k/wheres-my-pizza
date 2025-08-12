@@ -18,7 +18,6 @@ import (
 	"github.com/Temutjin2k/wheres-my-pizza/internal/service/kitchen"
 	"github.com/Temutjin2k/wheres-my-pizza/pkg/logger"
 	postgresclient "github.com/Temutjin2k/wheres-my-pizza/pkg/postgres"
-	rabbitclient "github.com/Temutjin2k/wheres-my-pizza/pkg/rabbit"
 )
 
 var (
@@ -34,10 +33,16 @@ type KitchenWorker interface {
 	Stop(ctx context.Context)
 }
 
+// Feature: Order Service
+// The Kitchen Worker is a background service that simulates the kitchen staff. It consumes order
+// messages from a queue, processes them, and updates their status in the database. It is the core
+// processing engine of the restaurant. Multiple worker instances can run concurrently to handle
+// high order volumes and can be specialized to process specific types of orders.
 type KitchenService struct {
 	postgresDB    *postgresclient.PostgreDB
 	kitchenWorker KitchenWorker
-	rabbitClient  *rabbitclient.RabbitMQ
+	consumer      *rabbit.OrderConsumer
+	producer      *rabbit.NotificationProducer
 
 	cfg config.Config
 	log logger.Logger
@@ -71,27 +76,18 @@ func NewKitchen(ctx context.Context, cfg config.Config, log logger.Logger) (*Kit
 	log.Info(ctx, types.ActionDBConnected, "connected to the database")
 
 	// RabbitMQ connection
-	rabbitClient, err := rabbitclient.New(ctx, cfg.RabbitMQ.Conn)
-	if err != nil {
-		log.Error(ctx, types.ActionRabbitConnectionFailed, "failed to connect RabbitMQ", err)
-		return nil, err
-	}
-
 	// Initialize order consumer
-	consumer, err := rabbit.NewOrderConsumer(ctx, cfg.RabbitMQ.OrderExchange, rabbitClient, cfg.Services.Kitchen.Prefetch, validOrderTypes, log)
+	consumer, err := rabbit.NewOrderConsumer(ctx, cfg.RabbitMQ, cfg.Services.Kitchen.Prefetch, validOrderTypes, log)
 	if err != nil {
 		log.Error(ctx, types.ActionRabbitConnectionFailed, "failed to create order consumer", err)
 		return nil, fmt.Errorf("failed to create order consumer: %w", err)
 	}
 	// Initialize notification producer
-	producer, err := rabbit.NewProducerNotify(rabbitClient, cfg.RabbitMQ.NotificationsExchange, log)
+	producer, err := rabbit.NewProducerNotify(ctx, cfg.RabbitMQ, log)
 	if err != nil {
 		log.Error(ctx, types.ActionRabbitConnectionFailed, "failed to create notification producer", err)
 		return nil, fmt.Errorf("failed to create notification producer: %w", err)
 	}
-
-	// log RabbitMQ connection
-	log.Info(ctx, types.ActionRabbitMQConnected, "connected to rabbitMQ")
 
 	// Initialize repositories
 	workerRepo := postgres.NewWorkerRepo(db.Pool)
@@ -103,7 +99,8 @@ func NewKitchen(ctx context.Context, cfg config.Config, log logger.Logger) (*Kit
 	return &KitchenService{
 		postgresDB:    db,
 		kitchenWorker: kitchenWorker,
-		rabbitClient:  rabbitClient,
+		consumer:      consumer,
+		producer:      producer,
 
 		cfg: cfg,
 		log: log,
@@ -111,6 +108,11 @@ func NewKitchen(ctx context.Context, cfg config.Config, log logger.Logger) (*Kit
 }
 
 func (s *KitchenService) Start(ctx context.Context) error {
+	defer func() {
+		s.close(ctx)
+		s.log.Info(ctx, types.ActionGracefulShutdown, "kitchen service closed")
+	}()
+
 	errCh := make(chan error, 1)
 
 	// kitchen worker starts to work in goroutine
@@ -122,28 +124,76 @@ func (s *KitchenService) Start(ctx context.Context) error {
 
 	s.log.Info(ctx, types.ActionServiceStarted, "service started")
 
-	select {
-	case errRun := <-errCh:
-		return errRun
-	case sig := <-shutdownCh:
-		s.log.Info(ctx, types.ActionGracefulShutdown, "shuting down application", "signal", sig.String())
-
-		s.close(ctx)
-		s.log.Info(ctx, types.ActionGracefulShutdown, "graceful shutdown completed!")
+	for {
+		select {
+		case <-ctx.Done():
+			s.log.Info(ctx, types.ActionGracefulShutdown, "context cancelled")
+			return ctx.Err()
+		case errRun := <-errCh:
+			if errors.Is(errRun, kitchen.ErrWorkerStopped) {
+				if err := s.reconnect(ctx, shutdownCh); err != nil {
+					return err
+				}
+				continue
+			}
+			return errRun
+		case sig := <-shutdownCh:
+			s.log.Info(ctx, types.ActionGracefulShutdown, "shutting down application", "signal", sig.String())
+			return nil
+		}
 	}
-
-	return nil
 }
 
 // close stops worker and closes connections.
 func (s *KitchenService) close(ctx context.Context) {
+	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
+	defer cancel()
+
 	s.kitchenWorker.Stop(ctx)
 
-	if err := s.rabbitClient.Close(); err != nil {
+	if err := s.consumer.Close(ctx); err != nil {
+		s.log.Error(ctx, types.ActionGracefulShutdown, "failed to close rabbit connection", err)
+	}
+
+	if err := s.producer.Close(ctx); err != nil {
 		s.log.Error(ctx, types.ActionGracefulShutdown, "failed to close rabbit connection", err)
 	}
 
 	s.postgresDB.Pool.Close()
+}
+
+func (s *KitchenService) reconnect(ctx context.Context, shutdownCh chan os.Signal) error {
+	var lastErr error
+
+	for attempt := 1; attempt <= s.cfg.RabbitMQ.ReconnectAttempt; attempt++ {
+		s.log.Info(ctx, "rabbit_reconnect_attempt", fmt.Sprintf("Attempt %d to recreate service", attempt))
+
+		newSvc, err := NewKitchen(ctx, s.cfg, s.log)
+		if err == nil {
+			// Closing old service
+			s.close(ctx)
+
+			*s = *newSvc
+
+			// Starting a new worker
+			go s.kitchenWorker.Work(ctx, make(chan error, 1))
+			return nil
+		}
+
+		lastErr = err
+		s.log.Error(ctx, types.ActionRabbitConnectionFailed, "failed to recreate kitchen service", err)
+
+		select {
+		case <-shutdownCh:
+			s.log.Info(ctx, "rabbit_reconnect_stopped", "Reconnect was stopped externally")
+			return fmt.Errorf("reconnect stopped externally")
+		default:
+			time.Sleep(s.cfg.RabbitMQ.ReconnectDelay)
+		}
+	}
+
+	s.log.Warn(ctx, "rabbit_reconnect_max_failed", "Failed to recreate service after max attempts")
+	return lastErr
 }
 
 // ValidateOrderTypes handles all validation cases for the --order-types flag

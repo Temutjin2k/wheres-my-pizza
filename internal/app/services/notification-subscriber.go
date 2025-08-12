@@ -15,6 +15,12 @@ import (
 	pkg "github.com/Temutjin2k/wheres-my-pizza/pkg/rabbit"
 )
 
+// ## Feature: Notification Service
+// The Notification Service is a simple subscriber that demonstrates the fanout
+// capabilities of the messaging system. It listens for all order status updates
+// published by the Kitchen Workers and displays them. In a real-world scenario,
+// this service could be extended to send push notifications, emails, or SMS
+// messages to customers.
 type NotificationSubsriber struct {
 	service Service
 
@@ -28,7 +34,7 @@ type Service interface {
 }
 
 func NewNotificationSubscriber(ctx context.Context, cfg config.Config, log logger.Logger) (*NotificationSubsriber, error) {
-	client, err := pkg.New(ctx, cfg.RabbitMQ.Conn)
+	client, err := pkg.New(ctx, cfg.RabbitMQ.Conn, log)
 	if err != nil {
 		log.Error(ctx, "rabbit_connect", "failed to connect rabbitmq", err)
 		return nil, fmt.Errorf("failed to connect rabbitmq: %v", err)
@@ -45,6 +51,11 @@ func NewNotificationSubscriber(ctx context.Context, cfg config.Config, log logge
 }
 
 func (s *NotificationSubsriber) Start(ctx context.Context) error {
+	defer func() {
+		s.close(ctx)
+		s.log.Info(ctx, types.ActionGracefulShutdown, "notification service closed")
+	}()
+
 	errCh := make(chan error, 1)
 	go s.service.Notify(ctx, errCh)
 
@@ -59,17 +70,12 @@ func (s *NotificationSubsriber) Start(ctx context.Context) error {
 		return errRun
 	case sig := <-shutdownCh:
 		s.log.Info(ctx, types.ActionGracefulShutdown, "shuting down application", "signal", sig.String())
-
-		if err := s.close(); err != nil {
-			s.log.Error(ctx, types.ActionGracefulShutdown, "failed to close service", err)
-		}
-
-		s.log.Info(ctx, types.ActionGracefulShutdown, "graceful shutdown completed!")
+		return nil
 	}
-
-	return nil
 }
 
-func (s *NotificationSubsriber) close() error {
-	return s.service.Close()
+func (s *NotificationSubsriber) close(ctx context.Context) {
+	if err := s.service.Close(); err != nil {
+		s.log.Error(ctx, types.ActionGracefulShutdown, "failed to close notification service", err)
+	}
 }

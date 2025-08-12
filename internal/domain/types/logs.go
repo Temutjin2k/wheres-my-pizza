@@ -9,13 +9,15 @@ const (
 	ActionGracefulShutdown  = "graceful_shutdown"
 
 	// Debug level actions
-	ActionOrderReceived          = "order_received"
-	ActionRequestReceived        = "request_received"
-	ActionOrderPublished         = "order_published"
-	ActionOrderProcessingStarted = "order_processing_started"
-	ActionOrderCompleted         = "order_completed"
-	ActionHeartbeatSent          = "heartbeat_sent"
-	ActionNotificationReceived   = "notification_received"
+	ActionOrderReceived           = "order_received"
+	ActionRequestReceived         = "request_received"
+	ActionOrderPublished          = "order_published"
+	ActionOrderProcessingStarted  = "order_processing_started"
+	ActionOrderCompleted          = "order_completed"
+	ActionHeartbeatSent           = "heartbeat_sent"
+	ActionNotificationReceived    = "notification_received"
+	ActionRabbitConnectionClosed  = "rabbitmq_connection_closed"
+	ActionRabbitConnectionClosing = "rabbitmq_connection_closing"
 
 	// Error level actions
 	ActionValidationFailed         = "validation_failed"

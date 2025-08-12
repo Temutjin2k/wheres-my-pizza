@@ -50,7 +50,7 @@ func (h *Order) CreateOrder(w http.ResponseWriter, r *http.Request) {
 
 	info, err := h.service.CreateOrder(ctx, createOrder)
 	if err != nil {
-		internalErrorResponse(w, err)
+		internalErrorResponse(w, err.Error())
 		return
 	}
 
@@ -65,7 +65,7 @@ func (h *Order) CreateOrder(w http.ResponseWriter, r *http.Request) {
 
 	if err := writeJSON(w, http.StatusCreated, response, nil); err != nil {
 		h.log.Error(ctx, types.ActionValidationFailed, "failed to write response", err)
-		internalErrorResponse(w, err)
+		internalErrorResponse(w, err.Error())
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/Temutjin2k/wheres-my-pizza/config"
 	httpserver "github.com/Temutjin2k/wheres-my-pizza/internal/adapter/http/server"
@@ -16,6 +17,12 @@ import (
 	postgresclient "github.com/Temutjin2k/wheres-my-pizza/pkg/postgres"
 )
 
+// ## Feature: Tracking Service
+// The Tracking Service provides visibility into the restaurant's operations.
+// It offers a read-only HTTP API for external clients (like a customer-facing
+// app or an internal dashboard) to query the current status of orders, view an
+// order's history, and monitor the status of all kitchen workers. It directly
+// queries the database and does not interact with RabbitMQ.
 type Tracking struct {
 	postgresDB *postgresclient.PostgreDB
 	httpServer *httpserver.API
@@ -55,6 +62,11 @@ func (s *Tracking) Start(ctx context.Context) error {
 
 	s.httpServer.Run(ctx, errCh)
 
+	defer func() {
+		s.close(ctx)
+		s.log.Info(ctx, types.ActionGracefulShutdown, "tracking service closed!")
+	}()
+
 	// Waiting signal
 	shutdownCh := make(chan os.Signal, 1)
 	signal.Notify(shutdownCh, syscall.SIGINT, syscall.SIGTERM)
@@ -66,15 +78,14 @@ func (s *Tracking) Start(ctx context.Context) error {
 		return errRun
 	case sig := <-shutdownCh:
 		s.log.Info(ctx, types.ActionGracefulShutdown, "shuting down application", "signal", sig.String())
-
-		s.close(ctx)
-		s.log.Info(ctx, types.ActionGracefulShutdown, "graceful shutdown completed!")
+		return nil
 	}
-
-	return nil
 }
 
 func (s *Tracking) close(ctx context.Context) {
+	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
+	defer cancel()
+
 	if err := s.httpServer.Stop(ctx); err != nil {
 		s.log.Warn(ctx, types.ActionGracefulShutdown, "failed to shutdown HTTP server")
 	}

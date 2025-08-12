@@ -1,6 +1,21 @@
 postgres:
-  host: postgresql
+  host: localhost
   port: 5432
   user: restaurant_user
   password: restaurant_pass
   database: restaurant_db
+
+# RabbitMQ Configuration
+rabbitmq:
+  host: localhost
+  port: 5672
+  user: guest
+  password: guest
+  reconnect_attempt: 5
+  reconnect_delay: 2s
+
+  order:
+    exchange: "orders_topic"
+
+  notifications:
+    exchange: "notifications_fanout"

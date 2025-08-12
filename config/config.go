@@ -4,6 +4,7 @@ import (
 	"errors"
 	"flag"
 	"os"
+	"time"
 
 	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/types"
 	"github.com/Temutjin2k/wheres-my-pizza/pkg/configparser"
@@ -85,8 +86,10 @@ type (
 
 	RabbitMQ struct {
 		Conn                  rabbit.Config
-		OrderExchange         string `env:"RABBITMQ_ORDER_EXCHANGE" default:"orders_topic"`
-		NotificationsExchange string `env:"RABBITMQ_NOTIFICATIONS_EXCHANGE" default:"notifications_fanout"`
+		OrderExchange         string        `env:"RABBITMQ_ORDER_EXCHANGE" default:"orders_topic"`
+		NotificationsExchange string        `env:"RABBITMQ_NOTIFICATIONS_EXCHANGE" default:"notifications_fanout"`
+		ReconnectAttempt      int           `env:"reconnect_attempt" default:"5"`
+		ReconnectDelay        time.Duration `env:"reconnect_delay" default:"2s"`
 	}
 )
 

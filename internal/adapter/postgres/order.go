@@ -21,7 +21,7 @@ func NewOrderRepo(pool *pgxpool.Pool) *orderRepository {
 	}
 }
 
-func (r *orderRepository) Create(ctx context.Context, req *models.CreateOrder, notes string) (*models.Order, error) {
+func (r *orderRepository) Create(ctx context.Context, req *models.CreateOrder, changedBy, notes string) (*models.Order, error) {
 	var order models.Order
 
 	// Start a transaction
@@ -98,10 +98,14 @@ func (r *orderRepository) Create(ctx context.Context, req *models.CreateOrder, n
 	_, err = tx.Exec(ctx,
 		`INSERT INTO order_status_log (
 			order_id,
-			status
-		) VALUES ($1, $2)`,
+			status,
+			changed_by,
+			notes
+		) VALUES ($1, $2, $3, $4)`,
 		order.ID,
 		types.StatusOrderReceived, // 'received'
+		changedBy,
+		notes,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to log initial order status: %w", err)
@@ -155,7 +159,7 @@ func (r *orderRepository) GetAndIncrementSequence(ctx context.Context, date stri
 }
 
 // SetStatus updates order status and logs it in one transaction.
-func (r *orderRepository) SetStatus(ctx context.Context, orderNumber, workerName, status string, notes string) (string, error) {
+func (r *orderRepository) SetStatus(ctx context.Context, orderNumber, workerName, status, notes string) (string, error) {
 	const op = "orderRepository.SetStatus"
 
 	tx, err := r.pool.Begin(ctx)

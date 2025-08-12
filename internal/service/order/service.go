@@ -2,6 +2,7 @@ package order
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 	"time"
 
@@ -9,6 +10,8 @@ import (
 	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/types"
 	"github.com/Temutjin2k/wheres-my-pizza/pkg/logger"
 )
+
+const servicename = "order-service"
 
 type Service struct {
 	orderRepo OrderRepository
@@ -32,7 +35,7 @@ func (s *Service) CreateOrder(ctx context.Context, req *models.CreateOrder) (*mo
 	today := todayDate()
 	number, err := s.orderRepo.GetAndIncrementSequence(ctx, today)
 	if err != nil {
-		s.log.Error(ctx, types.ActionDBQueryFailed, "failed to get next order sequence.", err)
+		s.log.Error(ctx, types.ActionDBQueryFailed, "failed to get next order sequence. generating random order_number", err)
 		// fallback mechanism
 		number = getRandomOrderNumber()
 	}
@@ -43,18 +46,18 @@ func (s *Service) CreateOrder(ctx context.Context, req *models.CreateOrder) (*mo
 	req.Status = types.StatusOrderReceived
 
 	// Store order to database
-	order, err := s.orderRepo.Create(ctx, req, "")
+	order, err := s.orderRepo.Create(ctx, req, servicename, "")
 	if err != nil {
 		s.log.Error(ctx, types.ActionDBTransactionFailed, "failed to create new order", err)
-		return nil, err
+		return nil, fmt.Errorf("failed to create new order: %w", err)
 	}
 
 	// Send request info about publishing order with retry
 	if err := retry(5, time.Second, func() error {
 		return s.writer.PublishCreateOrder(ctx, req)
 	}); err != nil {
-		s.log.Error(ctx, types.ActionDBQueryFailed, "order stored to database, but not produced to writer", err)
-		return nil, err
+		s.log.Error(ctx, types.ActionDBQueryFailed, "order stored to database, but not published", err)
+		return nil, fmt.Errorf("failed to publish order: %w", err)
 	}
 
 	return &models.OrderCreatedInfo{

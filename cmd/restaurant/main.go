@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"os"
 
 	"github.com/Temutjin2k/wheres-my-pizza/config"
 	"github.com/Temutjin2k/wheres-my-pizza/internal/app"
@@ -23,7 +24,7 @@ func main() {
 	cfg, err := config.New(configPath)
 	if err != nil {
 		log.Error(ctx, "config_init", "failed to init config", err)
-		return
+		os.Exit(1)
 	}
 
 	config.PrintConfig(cfg)
@@ -32,13 +33,13 @@ func main() {
 	app, err := app.NewApplication(ctx, *cfg, log)
 	if err != nil {
 		log.Error(ctx, "app_init", "failed to init application", err)
-		return
+		os.Exit(1)
 	}
 
 	// Running the apllication
 	err = app.Run(ctx)
 	if err != nil {
 		log.Error(ctx, "app_run", "failed to run application", err)
-		return
+		os.Exit(1)
 	}
 }

@@ -7,7 +7,7 @@ import (
 )
 
 type OrderRepository interface {
-	Create(ctx context.Context, req *models.CreateOrder, notes string) (*models.Order, error)
+	Create(ctx context.Context, req *models.CreateOrder, changedBy, notes string) (*models.Order, error)
 	GetAndIncrementSequence(ctx context.Context, date string) (int, error)
 }
 

@@ -107,6 +107,7 @@ func (c *OrderConsumer) Consume(
 			return nil
 		case msg, ok := <-msgs:
 			if !ok {
+				c.log.Debug(ctx, "order_consumer_stop", "stopped consumimg messages")
 				return nil
 			}
 
@@ -155,7 +156,7 @@ func (r *OrderConsumer) reconnect(ctx context.Context) error {
 }
 
 func (r *OrderConsumer) Close(ctx context.Context) error {
-	if r.client == nil {
+	if r.client == nil || r.client.IsConnectionClosed() {
 		return nil
 	}
 

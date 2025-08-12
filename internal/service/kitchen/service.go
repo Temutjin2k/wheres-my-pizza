@@ -14,7 +14,8 @@ import (
 )
 
 var (
-	ErrNilOrder = errors.New("nil order")
+	ErrWorkerStopped = errors.New("worker stopped")
+	ErrNilOrder      = errors.New("nil order")
 )
 
 type (
@@ -24,6 +25,7 @@ type (
 		consumer   Consumer
 		producer   Producer
 
+		mu        sync.Mutex
 		isWorking bool
 		worker    *worker
 		log       logger.Logger
@@ -46,7 +48,7 @@ func NewWorker(
 	producer Producer,
 	workerName string,
 	orderTypes []string,
-	heatbeat time.Duration,
+	heartbeat time.Duration,
 	log logger.Logger,
 ) *KitchenWorker {
 	return &KitchenWorker{
@@ -54,28 +56,33 @@ func NewWorker(
 		orderRepo:  orderRepo,
 		consumer:   consumer,
 		producer:   producer,
+		mu:         sync.Mutex{},
+
 		worker: &worker{
 			name:       workerName,
 			orderTypes: orderTypes,
-			heartbeat:  heatbeat,
+			heartbeat:  heartbeat,
 		},
 
 		log: log,
 	}
 }
 
-// Work works
+// Work starts consuming orders and proccesses them
 func (s *KitchenWorker) Work(ctx context.Context, errCh chan<- error) {
+	s.mu.Lock()
 	// check if it's already working.
 	if s.isWorking {
 		errCh <- errors.New("worker is already working")
 		return
 	}
 	s.isWorking = true
+	s.mu.Unlock()
 
 	defer func() {
 		// stop the worker from consuming and updating database.
 		s.Stop(ctx)
+		errCh <- ErrWorkerStopped
 	}()
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -104,35 +111,47 @@ func (s *KitchenWorker) Work(ctx context.Context, errCh chan<- error) {
 		go func(ot string) {
 			defer func() {
 				wg.Done()
-				s.log.Info(ctx, "stop_consume", "stoped consume queue", "order-type", ot)
+				s.log.Info(ctx, "kitchen_worker_stop_consume", "stopped consuming orders", "order-type", ot)
 			}()
 
 			// Start consumining
-			if err := s.consumer.Consume(ctx, ot, s.proccesOrder); err != nil {
-				errCh <- fmt.Errorf("failed to start conuming: %w", err)
-				return
+			err := s.consumer.Consume(ctx, ot, s.proccesOrder)
+			if err != nil {
+				select {
+				case errCh <- fmt.Errorf("failed to start consuming: %w", err):
+				default:
+					s.log.Error(ctx, "error_channel_full", "failed to send error to channel", err)
+				}
 			}
 		}(ot)
 	}
 
-	go s.heartbeatLoop(ctx, s.worker.heartbeat)
+	go func() {
+		s.heartbeatLoop(ctx, s.worker.heartbeat)
+	}()
+
 	wg.Wait()
 }
 
 // Stop worker from work
 func (s *KitchenWorker) Stop(ctx context.Context) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	if !s.isWorking {
 		return
 	}
 
-	s.cancel()
-	s.isWorking = false
+	if s.cancel != nil {
+		s.cancel()
+	}
 
 	// Mark worker offline
 	if err := s.workerRepo.MarkOffline(ctx, s.worker.name); err != nil {
 		s.log.Error(ctx, types.ActionDBQueryFailed, "failed to mark worker offline", err, "worker-name", s.worker.name)
 		return
 	}
+	s.isWorking = false
 
 	s.log.Info(ctx, "worker_stop", "stopping worker", "worker-name", s.worker.name)
 }
@@ -144,7 +163,15 @@ func (s *KitchenWorker) proccesOrder(ctx context.Context, req *models.CreateOrde
 		return ErrNilOrder
 	}
 
-	s.log.Debug(ctx, types.ActionOrderProcessingStarted, "kitchen worker proccessing order", "worker-name", s.worker.name, "order-number", "order-number", req.Number)
+	cookingTime := types.GetSimulateDuration(req.Type) // Simulated time
+
+	s.log.Debug(
+		ctx,
+		types.ActionOrderProcessingStarted,
+		"kitchen worker started proccessing order",
+		"worker-name", s.worker.name,
+		"order-number", req.Number,
+		"cooking-time", cookingTime)
 
 	// Set status cooking
 	oldStatus, err := s.orderRepo.SetStatus(ctx, req.Number, s.worker.name, types.StatusOrderCooking, "")
@@ -154,7 +181,7 @@ func (s *KitchenWorker) proccesOrder(ctx context.Context, req *models.CreateOrde
 	}
 
 	timestamp := time.Now()
-	cookingTime := types.GetSimulateDuration(req.Type)
+	completion := timestamp.Add(cookingTime)
 
 	// RequestID
 	var requestID string
@@ -169,12 +196,11 @@ func (s *KitchenWorker) proccesOrder(ctx context.Context, req *models.CreateOrde
 		NewStatus:   types.StatusOrderCooking,
 		ChangedBy:   s.worker.name,
 		Timestamp:   timestamp,
-		Completion:  timestamp.Add(cookingTime),
+		Completion:  completion,
 		RequestID:   requestID,
 	}); err != nil {
 		s.log.Error(ctx, types.ActionRabbitMQPublishFailed, "failed to publish status update", err)
 		s.log.Warn(ctx, types.ActionMessageProcessingFailed, "order status changed to cooking, but could not increment number of proccessed order for worker in the database")
-		// TODO: Think what to do, return error or continue
 	}
 
 	// Simulating working proccess.
@@ -195,23 +221,20 @@ func (s *KitchenWorker) proccesOrder(ctx context.Context, req *models.CreateOrde
 		NewStatus:   types.StatusOrderReady,
 		ChangedBy:   s.worker.name,
 		Timestamp:   timestamp,
-		Completion:  timestamp, // TODO: what to write for completion
+		Completion:  completion,
 		RequestID:   requestID,
 	}); err != nil {
 		s.log.Error(ctx, types.ActionRabbitMQPublishFailed, "failed to publish status update", err, "worker-name", s.worker.name)
 		s.log.Warn(ctx, types.ActionRabbitMQPublishFailed, "order has been proccessed, but failed to publish status update")
-		// TODO: Think what to do, return error or continue
 	}
 
 	// Increment number of proccessed orders by the worker.
 	if err := s.workerRepo.IncrOrdersProcessed(ctx, s.worker.name); err != nil {
 		s.log.Error(ctx, types.ActionMessageProcessingFailed, "failed to increment number of ordered", err, "worker-name", s.worker.name)
 		s.log.Warn(ctx, types.ActionMessageProcessingFailed, "order has been proccessed, but could not increment number of proccessed order for worker in the database")
-		// TODO: Think what to do, return error or continue
 	}
 
-	s.log.Debug(ctx, types.ActionOrderCompleted, "order completed by worker", "worker-name", s.worker.name)
-
+	s.log.Debug(ctx, types.ActionOrderCompleted, "order proccess finished", "worker-name", s.worker.name)
 	return nil
 }
 

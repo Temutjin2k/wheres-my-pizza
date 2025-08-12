@@ -101,6 +101,10 @@ func (s *NotificationSubscriber) startConsuming(ctx context.Context, outCh chan 
 			select {
 			case msg := <-msgs:
 				update, err := decodeStatusUpdate(msg.Body)
+				if len(update.RequestID) != 0 {
+					ctx = logger.WithRequestID(ctx, update.RequestID) // request_id logging
+				}
+
 				if err != nil {
 					s.log.Error(ctx, "notification_decode", "Failed to decode status update", err)
 					if err := msg.Nack(false, false); err != nil {

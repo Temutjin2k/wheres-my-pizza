@@ -27,7 +27,7 @@ func (a *API) setupDefaultRoutes() {
 
 // setupOrderRoutes setups routes for order service
 func (a *API) setupOrderRoutes() {
-	a.mux.HandleFunc("POST /order", a.routes.order.CreateOrder)
+	a.mux.HandleFunc("POST /orders", a.routes.order.CreateOrder)
 }
 
 // setupTrackingRoutes setups routes for tracking service

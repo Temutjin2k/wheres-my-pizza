@@ -108,6 +108,11 @@ func NewKitchen(ctx context.Context, cfg config.Config, log logger.Logger) (*Kit
 }
 
 func (s *KitchenService) Start(ctx context.Context) error {
+	defer func() {
+		s.close(ctx)
+		s.log.Info(ctx, types.ActionGracefulShutdown, "kitchen service closed")
+	}()
+
 	errCh := make(chan error, 1)
 
 	// kitchen worker starts to work in goroutine
@@ -120,16 +125,18 @@ func (s *KitchenService) Start(ctx context.Context) error {
 	s.log.Info(ctx, types.ActionServiceStarted, "service started")
 
 	select {
+	case <-ctx.Done():
+		s.log.Info(ctx, types.ActionGracefulShutdown, "context cancelled")
+		return ctx.Err()
 	case errRun := <-errCh:
+		if errors.Is(errRun, kitchen.ErrWorkerStopped) {
+			return nil
+		}
 		return errRun
 	case sig := <-shutdownCh:
-		s.log.Info(ctx, types.ActionGracefulShutdown, "shuting down application", "signal", sig.String())
-
-		s.close(ctx)
-		s.log.Info(ctx, types.ActionGracefulShutdown, "graceful shutdown completed!")
+		s.log.Info(ctx, types.ActionGracefulShutdown, "shutting down application", "signal", sig.String())
+		return nil
 	}
-
-	return nil
 }
 
 // close stops worker and closes connections.
@@ -139,11 +146,11 @@ func (s *KitchenService) close(ctx context.Context) {
 
 	s.kitchenWorker.Stop(ctx)
 
-	if err := s.producer.Close(ctx); err != nil {
+	if err := s.consumer.Close(ctx); err != nil {
 		s.log.Error(ctx, types.ActionGracefulShutdown, "failed to close rabbit connection", err)
 	}
 
-	if err := s.consumer.Close(ctx); err != nil {
+	if err := s.producer.Close(ctx); err != nil {
 		s.log.Error(ctx, types.ActionGracefulShutdown, "failed to close rabbit connection", err)
 	}
 

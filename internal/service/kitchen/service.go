@@ -114,7 +114,7 @@ func (s *KitchenWorker) Work(ctx context.Context, errCh chan<- error) {
 				s.log.Info(ctx, "kitchen_worker_stop_consume", "stopped consuming orders", "order-type", ot)
 			}()
 
-			// Start consumining
+			// Start consuming
 			err := s.consumer.Consume(ctx, ot, s.proccesOrder)
 			if err != nil {
 				select {

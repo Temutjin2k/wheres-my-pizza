@@ -124,19 +124,23 @@ func (s *KitchenService) Start(ctx context.Context) error {
 
 	s.log.Info(ctx, types.ActionServiceStarted, "service started")
 
-	select {
-	case <-ctx.Done():
-		s.log.Info(ctx, types.ActionGracefulShutdown, "context cancelled")
-		return ctx.Err()
-	case errRun := <-errCh:
-		if errors.Is(errRun, kitchen.ErrWorkerStopped) {
-
+	for {
+		select {
+		case <-ctx.Done():
+			s.log.Info(ctx, types.ActionGracefulShutdown, "context cancelled")
+			return ctx.Err()
+		case errRun := <-errCh:
+			if errors.Is(errRun, kitchen.ErrWorkerStopped) {
+				if err := s.reconnect(ctx, shutdownCh); err != nil {
+					return err
+				}
+				continue
+			}
+			return errRun
+		case sig := <-shutdownCh:
+			s.log.Info(ctx, types.ActionGracefulShutdown, "shutting down application", "signal", sig.String())
 			return nil
 		}
-		return errRun
-	case sig := <-shutdownCh:
-		s.log.Info(ctx, types.ActionGracefulShutdown, "shutting down application", "signal", sig.String())
-		return nil
 	}
 }
 
@@ -156,6 +160,40 @@ func (s *KitchenService) close(ctx context.Context) {
 	}
 
 	s.postgresDB.Pool.Close()
+}
+
+func (s *KitchenService) reconnect(ctx context.Context, shutdownCh chan os.Signal) error {
+	var lastErr error
+
+	for attempt := 1; attempt <= s.cfg.RabbitMQ.ReconnectAttempt; attempt++ {
+		s.log.Info(ctx, "rabbit_reconnect_attempt", fmt.Sprintf("Attempt %d to recreate service", attempt))
+
+		newSvc, err := NewKitchen(ctx, s.cfg, s.log)
+		if err == nil {
+			// Closing old service
+			s.close(ctx)
+
+			*s = *newSvc
+
+			// Starting a new worker
+			go s.kitchenWorker.Work(ctx, make(chan error, 1))
+			return nil
+		}
+
+		lastErr = err
+		s.log.Error(ctx, types.ActionRabbitConnectionFailed, "failed to recreate kitchen service", err)
+
+		select {
+		case <-shutdownCh:
+			s.log.Info(ctx, "rabbit_reconnect_stopped", "Reconnect was stopped externally")
+			return fmt.Errorf("reconnect stopped externally")
+		default:
+			time.Sleep(s.cfg.RabbitMQ.ReconnectDelay)
+		}
+	}
+
+	s.log.Warn(ctx, "rabbit_reconnect_max_failed", "Failed to recreate service after max attempts")
+	return lastErr
 }
 
 // ValidateOrderTypes handles all validation cases for the --order-types flag

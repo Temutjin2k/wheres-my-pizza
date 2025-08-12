@@ -11,6 +11,8 @@ rabbitmq:
   port: 5672
   user: guest
   password: guest
+  reconnect_attempt: 5
+  reconnect_delay: 2s
 
   order:
     exchange: "orders_topic"

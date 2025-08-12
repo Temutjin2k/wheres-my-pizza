@@ -8,17 +8,17 @@ volumes:
   rabbitmq_data:
 
 services: 
-  # restaurant-system:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile
-  #   ports:
-  #     - "8082:8080" 
-  #   depends_on:
-  #     postgresql:
-  #       condition: service_healthy
-  #   networks:
-  #     - net
+  restaurant-system:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8082:8080" 
+    depends_on:
+      postgresql:
+        condition: service_healthy
+    networks:
+      - net
 
 
   postgresql:

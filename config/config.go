@@ -88,8 +88,8 @@ type (
 		Conn                  rabbit.Config
 		OrderExchange         string        `env:"RABBITMQ_ORDER_EXCHANGE" default:"orders_topic"`
 		NotificationsExchange string        `env:"RABBITMQ_NOTIFICATIONS_EXCHANGE" default:"notifications_fanout"`
-		ReconnectAttempt      int           `env:"reconnect_attempt" default:"5"`
-		ReconnectDelay        time.Duration `env:"reconnect_delay" default:"2s"`
+		ReconnectAttempt      int           `env:"RABBITMQ_RECONNECT_ATTEMPT" default:"5"`
+		ReconnectDelay        time.Duration `env:"RABBITMQ_RECONNECT_DELAY" default:"2s"`
 	}
 )
 

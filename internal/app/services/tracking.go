@@ -62,6 +62,11 @@ func (s *Tracking) Start(ctx context.Context) error {
 
 	s.httpServer.Run(ctx, errCh)
 
+	defer func() {
+		s.close(ctx)
+		s.log.Info(ctx, types.ActionGracefulShutdown, "tracking service closed!")
+	}()
+
 	// Waiting signal
 	shutdownCh := make(chan os.Signal, 1)
 	signal.Notify(shutdownCh, syscall.SIGINT, syscall.SIGTERM)
@@ -73,12 +78,8 @@ func (s *Tracking) Start(ctx context.Context) error {
 		return errRun
 	case sig := <-shutdownCh:
 		s.log.Info(ctx, types.ActionGracefulShutdown, "shuting down application", "signal", sig.String())
-
-		s.close(ctx)
-		s.log.Info(ctx, types.ActionGracefulShutdown, "graceful shutdown completed!")
+		return nil
 	}
-
-	return nil
 }
 
 func (s *Tracking) close(ctx context.Context) {

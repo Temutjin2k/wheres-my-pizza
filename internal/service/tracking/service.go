@@ -60,12 +60,8 @@ func (s *Service) ListWorkers(ctx context.Context) ([]models.Worker, error) {
 		return nil, fmt.Errorf("%s: %v", op, err)
 	}
 
-	fmt.Println(s.heartbeatInt)
 	threshold := time.Duration(s.heartbeatInt) * time.Second
 	for i := range workers {
-		fmt.Println(time.Now(), workers[i].LastSeen)
-
-		fmt.Println(now.Sub(workers[i].LastSeen), threshold)
 		if now.Sub(workers[i].LastSeen) > threshold {
 			workers[i].Status = types.WorkerOffline
 		}

@@ -51,6 +51,11 @@ func NewNotificationSubscriber(ctx context.Context, cfg config.Config, log logge
 }
 
 func (s *NotificationSubsriber) Start(ctx context.Context) error {
+	defer func() {
+		s.close(ctx)
+		s.log.Info(ctx, types.ActionGracefulShutdown, "notification service closed")
+	}()
+
 	errCh := make(chan error, 1)
 	go s.service.Notify(ctx, errCh)
 
@@ -65,17 +70,12 @@ func (s *NotificationSubsriber) Start(ctx context.Context) error {
 		return errRun
 	case sig := <-shutdownCh:
 		s.log.Info(ctx, types.ActionGracefulShutdown, "shuting down application", "signal", sig.String())
-
-		if err := s.close(); err != nil {
-			s.log.Error(ctx, types.ActionGracefulShutdown, "failed to close service", err)
-		}
-
-		s.log.Info(ctx, types.ActionGracefulShutdown, "graceful shutdown completed!")
+		return nil
 	}
-
-	return nil
 }
 
-func (s *NotificationSubsriber) close() error {
-	return s.service.Close()
+func (s *NotificationSubsriber) close(ctx context.Context) {
+	if err := s.service.Close(); err != nil {
+		s.log.Error(ctx, types.ActionGracefulShutdown, "failed to close notification service", err)
+	}
 }

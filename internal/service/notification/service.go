@@ -2,12 +2,15 @@ package notification
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 
 	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/types"
 	"github.com/Temutjin2k/wheres-my-pizza/pkg/logger"
 )
+
+var NotificationStopped = errors.New("notification subscriber stopped")
 
 type Service struct {
 	reader MessageReceiver
@@ -28,6 +31,11 @@ func (s *Service) Notify(ctx context.Context, errCh chan error) {
 		errCh <- err
 		return
 	}
+
+	defer func() {
+		s.reader.Close()
+		errCh <- NotificationStopped
+	}()
 
 	notifHost := "notification-sub "
 	if count, err := s.reader.GetListenerCount(); err != nil {

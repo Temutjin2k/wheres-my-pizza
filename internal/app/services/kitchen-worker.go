@@ -130,6 +130,7 @@ func (s *KitchenService) Start(ctx context.Context) error {
 		return ctx.Err()
 	case errRun := <-errCh:
 		if errors.Is(errRun, kitchen.ErrWorkerStopped) {
+
 			return nil
 		}
 		return errRun

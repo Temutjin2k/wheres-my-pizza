@@ -39,7 +39,7 @@ func (h *Tracking) GetOrderStatus(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(orderStatus); err != nil {
-		internalErrorResponse(w, err)
+		internalErrorResponse(w, err.Error())
 	}
 }
 
@@ -55,7 +55,7 @@ func (h *Tracking) GetTrackingHistory(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(historyList); err != nil {
-		internalErrorResponse(w, err)
+		internalErrorResponse(w, err.Error())
 	}
 }
 
@@ -70,6 +70,6 @@ func (h *Tracking) ListWorkers(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(workersList); err != nil {
-		internalErrorResponse(w, err)
+		internalErrorResponse(w, err.Error())
 	}
 }

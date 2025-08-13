@@ -22,25 +22,33 @@ type Service struct {
 	orderRepo OrderRepository
 	writer    MessageBroker
 	sem       Semaphore
+	semWait   time.Duration
 
 	log logger.Logger
 }
 
-func NewService(repo OrderRepository, writer MessageBroker, sem Semaphore, log logger.Logger) *Service {
+func NewService(repo OrderRepository, writer MessageBroker, sem Semaphore, semWait time.Duration, log logger.Logger) *Service {
 	return &Service{
 		orderRepo: repo,
 		writer:    writer,
 		sem:       sem,
+		semWait:   time.Second,
 		log:       log,
 	}
 }
 
 // CreateOrder creates new order
 func (s *Service) CreateOrder(ctx context.Context, req *models.CreateOrder) (*models.OrderCreatedInfo, error) {
-	s.log.Debug(ctx, types.ActionOrderReceived, "new order received, trying to proccess...", "slots-available", s.sem.Available(), "slots-used", s.sem.Used())
+	s.log.Debug(
+		ctx,
+		types.ActionOrderReceived,
+		"creating new order",
+		"slots-available", s.sem.Available(),
+		"slots-used", s.sem.Used(),
+	)
 
-	// Trying to take slot under 2 seconds if not returning error.
-	if !s.sem.TryAcquire(time.Second * 2) {
+	// Trying to take slot under s.semWait seconds if not returning error.
+	if !s.sem.TryAcquire(s.semWait) {
 		s.log.Error(ctx, types.ActionOrderProccessingFailed, "failed to proccess order", ErrTooManyRequest)
 		return nil, ErrTooManyRequest
 	}
@@ -50,7 +58,6 @@ func (s *Service) CreateOrder(ctx context.Context, req *models.CreateOrder) (*mo
 	number, err := s.orderRepo.GetAndIncrementSequence(ctx, today)
 	if err != nil {
 		s.log.Error(ctx, types.ActionDBQueryFailed, "failed to get next order sequence. generating random order_number", err)
-		// fallback mechanism
 		number = getRandomOrderNumber()
 	}
 

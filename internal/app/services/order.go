@@ -16,6 +16,7 @@ import (
 	"github.com/Temutjin2k/wheres-my-pizza/internal/service/order"
 	"github.com/Temutjin2k/wheres-my-pizza/pkg/logger"
 	postgresclient "github.com/Temutjin2k/wheres-my-pizza/pkg/postgres"
+	"github.com/Temutjin2k/wheres-my-pizza/pkg/semaphore"
 )
 
 // Feature: Order Service
@@ -50,7 +51,10 @@ func NewOrder(ctx context.Context, cfg config.Config, log logger.Logger) (*Order
 		return nil, fmt.Errorf("failed to connect rabbitmq: %v", err)
 	}
 
-	orderService := order.NewService(orderRepo, producer, log)
+	// Semaphore to control maximum number of concurrent orders to process.
+	sem := semaphore.NewSemaphore(cfg.Services.Order.MaxConcurrent)
+
+	orderService := order.NewService(orderRepo, producer, sem, log)
 
 	api := httpserver.New(cfg, orderService, nil, log)
 	return &Order{

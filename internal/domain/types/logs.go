@@ -28,4 +28,5 @@ const (
 	ActionMessageProcessingFailed  = "message_processing_failed"
 	ActionDBConnectionFailed       = "db_connection_failed"
 	ActionRabbitConnectionFailed   = "rabbitmq_connection_failed"
+	ActionOrderProccessingFailed   = "order_proccess_failed"
 )

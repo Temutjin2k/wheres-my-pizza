@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	ErrTooManyRequest = errors.New("too many request")
+	ErrTooManyRequest = errors.New("too many requests")
 )
 
 const servicename = "order-service"

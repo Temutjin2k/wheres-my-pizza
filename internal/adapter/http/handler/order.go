@@ -53,7 +53,7 @@ func (h *Order) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	info, err := h.service.CreateOrder(ctx, createOrder)
 	if err != nil {
 		if errors.Is(err, order.ErrTooManyRequest) {
-			errorResponse(w, http.StatusTooManyRequests, err)
+			errorResponse(w, http.StatusTooManyRequests, err.Error())
 			return
 		}
 		internalErrorResponse(w, err.Error())

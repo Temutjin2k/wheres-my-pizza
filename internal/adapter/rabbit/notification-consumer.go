@@ -4,9 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
-	"net/url"
 	"time"
 
 	"github.com/Temutjin2k/wheres-my-pizza/config"
@@ -204,51 +201,4 @@ func decodeStatusUpdate(body []byte) (models.StatusUpdate, error) {
 		return models.StatusUpdate{}, err
 	}
 	return update, nil
-}
-
-func (s *NotificationSubscriber) GetListenerCount() (int, error) {
-	vhost := url.PathEscape("/")
-	exchange := url.PathEscape(s.exchangeName)
-
-	url := fmt.Sprintf(
-		"http://%s:%s@%s:15672/api/exchanges/%s/%s/bindings/source",
-		s.cfg.Conn.User,
-		s.cfg.Conn.Password,
-		s.cfg.Conn.Host,
-		vhost,
-		exchange,
-	)
-
-	resp, err := http.Get(url)
-	if err != nil {
-		return 0, fmt.Errorf("failed to send request: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return 0, fmt.Errorf("unexpected status: %s", resp.Status)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return 0, fmt.Errorf("failed to read response: %v", err)
-	}
-
-	var bindings []struct {
-		Destination     string `json:"destination"`
-		DestinationType string `json:"destination_type"`
-	}
-	if err := json.Unmarshal(body, &bindings); err != nil {
-		return 0, fmt.Errorf("failed to parse response: %v", err)
-	}
-
-	// Фильтруем только очереди
-	count := 0
-	for _, b := range bindings {
-		if b.DestinationType == "queue" {
-			count++
-		}
-	}
-
-	return count, nil
 }

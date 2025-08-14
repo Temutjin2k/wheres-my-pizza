@@ -41,7 +41,8 @@ func NewNotificationSubscriber(ctx context.Context, cfg config.Config, log logge
 	}
 
 	reader := rabbit.NewNotificationSubscriber(client, cfg.RabbitMQ, log)
-	service := notification.NewService(reader, log)
+	notifier := notification.NewNotifyPrinter(log)
+	service := notification.NewService(reader, notifier, log)
 
 	return &NotificationSubsriber{
 		service: service,

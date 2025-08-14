@@ -6,8 +6,11 @@ import (
 	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/models"
 )
 
-type MessageReceiver interface {
+type NotificationConsumer interface {
 	StartListening(ctx context.Context) (chan models.StatusUpdate, error)
 	Close() error
-	GetListenerCount() (int, error)
+}
+
+type Notifier interface {
+	StatusUpdate(ctx context.Context, req models.StatusUpdate)
 }

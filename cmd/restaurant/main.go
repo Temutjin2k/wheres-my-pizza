@@ -16,11 +16,8 @@ var (
 	configPath = flag.String("config-path", "config.yaml", "Path to the config yaml file")
 )
 
-func init() {
-	flag.Parse()
-}
-
 func main() {
+	flag.Parse()
 	if *helpFlag {
 		config.PrintHelp()
 		return

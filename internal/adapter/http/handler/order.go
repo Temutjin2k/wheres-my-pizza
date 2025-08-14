@@ -2,11 +2,13 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"net/http"
 
 	"github.com/Temutjin2k/wheres-my-pizza/internal/adapter/http/handler/dto"
 	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/models"
 	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/types"
+	"github.com/Temutjin2k/wheres-my-pizza/internal/service/order"
 	"github.com/Temutjin2k/wheres-my-pizza/pkg/logger"
 	"github.com/Temutjin2k/wheres-my-pizza/pkg/validator"
 )
@@ -50,6 +52,10 @@ func (h *Order) CreateOrder(w http.ResponseWriter, r *http.Request) {
 
 	info, err := h.service.CreateOrder(ctx, createOrder)
 	if err != nil {
+		if errors.Is(err, order.ErrTooManyRequest) {
+			errorResponse(w, http.StatusTooManyRequests, err.Error())
+			return
+		}
 		internalErrorResponse(w, err.Error())
 		return
 	}

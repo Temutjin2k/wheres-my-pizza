@@ -2,6 +2,7 @@ package order
 
 import (
 	"context"
+	"time"
 
 	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/models"
 )
@@ -13,4 +14,11 @@ type OrderRepository interface {
 
 type MessageBroker interface {
 	PublishCreateOrder(ctx context.Context, order *models.CreateOrder) error
+}
+
+type Semaphore interface {
+	TryAcquire(timeout time.Duration) bool
+	Release()
+	Available() int
+	Used() int
 }

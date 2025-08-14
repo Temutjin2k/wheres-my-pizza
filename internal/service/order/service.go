@@ -2,6 +2,7 @@ package order
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
 	"time"
@@ -11,32 +12,52 @@ import (
 	"github.com/Temutjin2k/wheres-my-pizza/pkg/logger"
 )
 
+var (
+	ErrTooManyRequest = errors.New("too many requests")
+)
+
 const servicename = "order-service"
 
 type Service struct {
 	orderRepo OrderRepository
 	writer    MessageBroker
+	sem       Semaphore
+	semWait   time.Duration
 
 	log logger.Logger
 }
 
-func NewService(repo OrderRepository, writer MessageBroker, log logger.Logger) *Service {
+func NewService(repo OrderRepository, writer MessageBroker, sem Semaphore, semWait time.Duration, log logger.Logger) *Service {
 	return &Service{
 		orderRepo: repo,
 		writer:    writer,
+		sem:       sem,
+		semWait:   time.Second,
 		log:       log,
 	}
 }
 
 // CreateOrder creates new order
 func (s *Service) CreateOrder(ctx context.Context, req *models.CreateOrder) (*models.OrderCreatedInfo, error) {
-	s.log.Debug(ctx, types.ActionOrderReceived, "new order received", "")
+	s.log.Debug(
+		ctx,
+		types.ActionOrderReceived,
+		"creating new order",
+		"slots-available", s.sem.Available(),
+		"slots-used", s.sem.Used(),
+	)
+
+	// Trying to take slot under s.semWait seconds if not returning error.
+	if !s.sem.TryAcquire(s.semWait) {
+		s.log.Error(ctx, types.ActionOrderProccessingFailed, "failed to proccess order", ErrTooManyRequest)
+		return nil, ErrTooManyRequest
+	}
+	defer s.sem.Release()
 
 	today := todayDate()
 	number, err := s.orderRepo.GetAndIncrementSequence(ctx, today)
 	if err != nil {
 		s.log.Error(ctx, types.ActionDBQueryFailed, "failed to get next order sequence. generating random order_number", err)
-		// fallback mechanism
 		number = getRandomOrderNumber()
 	}
 

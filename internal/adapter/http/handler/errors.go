@@ -8,8 +8,7 @@ func errorResponse(w http.ResponseWriter, status int, message any) {
 	// Write the response using the writeJSON() helper. If this happens to return an
 	// error then log it, and fall back to sending the client an empty response with a
 	// 500 Internal Server Error status code.
-	err := writeJSON(w, status, env, nil)
-	if err != nil {
+	if err := writeJSON(w, status, env, nil); err != nil {
 		w.WriteHeader(500)
 	}
 }

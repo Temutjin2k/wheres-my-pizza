@@ -71,9 +71,9 @@ func (c *OrderConsumer) Consume(
 ) error {
 	// Cheking if connected
 	if c.client.IsConnectionClosed() {
-		c.log.Debug(ctx, "recconect", "trying to recconect to RabbitMQ")
+		c.log.Debug(ctx, types.ActionRabbitReconnect, "trying to recconect to RabbitMQ")
 		if err := c.reconnect(ctx); err != nil {
-			return fmt.Errorf("failed to reconnect to rabbitMQ: %w", err)
+			return err
 		}
 	}
 
@@ -146,11 +146,19 @@ func (c *OrderConsumer) Consume(
 }
 
 func (r *OrderConsumer) reconnect(ctx context.Context) error {
-	conn, err := rabbit.New(ctx, r.cfg.Conn, r.log)
-	if err != nil {
-		return err
+	fn := func() error {
+		conn, err := rabbit.New(ctx, r.cfg.Conn, r.log)
+		if err != nil {
+			return err
+		}
+		r.client = conn
+
+		return nil
 	}
-	r.client = conn
+
+	if err := retry(ctx, r.cfg.ReconnectAttempt, r.cfg.ReconnectDelay, fn); err != nil {
+		return fmt.Errorf("failed to recconect rabbitMQ: %w", err)
+	}
 
 	return nil
 }

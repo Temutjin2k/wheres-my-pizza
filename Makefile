@@ -26,11 +26,14 @@ migrate-down:
 migrate-version:
 	migrate -path=./migrations -database "$(DB_URL)" version
 
+
+WORKER_ORDER_TYPES="dine_in,takeout,delivery"
+
 order-service-run:
-	go run ./cmd/restaurant/ --mode=order-service --port=3000
+	go run ./cmd/restaurant/ --mode=order-service --port=3000 --max-concurrent 50
 
 kitchen-worker-run:
-	go run ./cmd/restaurant/ --mode=kitchen-worker --worker-name="chef_anna" --prefetch=1
+	go run ./cmd/restaurant/ --mode=kitchen-worker --worker-name="john_cena" --prefetch=1 --order-types="$(WORKER_ORDER_TYPES)" --heartbeat-interval=30
 
 tracking-service-run:
 	go run ./cmd/restaurant/ --mode=tracking-service --port=3002

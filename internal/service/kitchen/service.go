@@ -92,7 +92,7 @@ func (s *KitchenWorker) Work(ctx context.Context, errCh chan<- error) {
 	workerOrderTypes := strings.Join(s.worker.orderTypes, ",")
 
 	// Marking worker as online
-	if err := s.workerRepo.MarkOnline(ctx, s.worker.name, workerOrderTypes); err != nil {
+	if err := s.workerRepo.MarkOnline(ctx, s.worker.name, workerOrderTypes, s.worker.heartbeat); err != nil {
 		s.log.Error(ctx, types.ActionWorkerRegistrationFailed, "failed to mark online worker", err, "worker-name", s.worker.name)
 		errCh <- err
 		return

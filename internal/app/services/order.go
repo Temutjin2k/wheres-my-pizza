@@ -54,7 +54,7 @@ func NewOrder(ctx context.Context, cfg config.Config, log logger.Logger) (*Order
 	// Semaphore to control maximum number of concurrent orders to process.
 	sem := semaphore.NewSemaphore(cfg.Services.Order.MaxConcurrent)
 
-	orderService := order.NewService(orderRepo, producer, sem, time.Second, log)
+	orderService := order.NewService(cfg, orderRepo, producer, sem, time.Second, log)
 
 	api := httpserver.New(cfg, orderService, nil, log)
 	return &Order{
@@ -97,11 +97,11 @@ func (s *Order) close(ctx context.Context) {
 	defer cancel()
 
 	if err := s.httpServer.Stop(ctx); err != nil {
-		s.log.Warn(ctx, types.ActionGracefulShutdown, "failed to shutdown HTTP server")
+		s.log.Error(ctx, types.ActionGracefulShutdown, "failed to shutdown HTTP server", err)
 	}
 
 	if err := s.producer.Close(ctx); err != nil {
-		s.log.Warn(ctx, types.ActionGracefulShutdown, "failed to close rabbitMQ order client connection")
+		s.log.Error(ctx, types.ActionGracefulShutdown, "failed to close rabbitMQ order client connection", err)
 	}
 
 	s.postgresDB.Pool.Close()

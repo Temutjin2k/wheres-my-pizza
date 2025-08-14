@@ -33,7 +33,7 @@ type handlers struct {
 }
 
 func New(cfg config.Config, orderService handler.OrderService, trackingService handler.TrackingService, logger logger.Logger) *API {
-	addr := fmt.Sprintf(serverIPAddress, "0.0.0.0", cfg.Server.HTTPServer.Port)
+	addr := fmt.Sprintf(serverIPAddress, "0.0.0.0", cfg.HTTPServer.Port)
 
 	handlers := &handlers{
 		order:    handler.NewOrder(orderService, logger),
@@ -41,13 +41,13 @@ func New(cfg config.Config, orderService handler.OrderService, trackingService h
 	}
 
 	api := &API{
-		mode: cfg.Flags.Mode,
+		mode: cfg.Mode,
 
 		mux:    http.NewServeMux(),
 		routes: handlers,
 
 		addr: addr,
-		cfg:  cfg.Server.HTTPServer,
+		cfg:  cfg.HTTPServer,
 		log:  logger,
 	}
 

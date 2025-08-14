@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"flag"
+	"log"
 	"os"
 
 	"github.com/Temutjin2k/wheres-my-pizza/config"
@@ -9,37 +11,46 @@ import (
 	"github.com/Temutjin2k/wheres-my-pizza/pkg/logger"
 )
 
-const (
-	serviceName = "restaurant-system"
-	configPath  = "config.yaml"
+var (
+	helpFlag   = flag.Bool("help", false, "Show help message")
+	configPath = flag.String("config-path", "config.yaml", "Path to the config yaml file")
 )
 
+func init() {
+	flag.Parse()
+}
+
 func main() {
+	if *helpFlag {
+		config.PrintHelp()
+		return
+	}
+
 	ctx := context.Background()
 
-	// Init logger
-	log := logger.InitLogger(serviceName, logger.LevelDebug)
-
 	// Init config
-	cfg, err := config.New(configPath)
+	cfg, err := config.New(*configPath)
 	if err != nil {
-		log.Error(ctx, "config_init", "failed to init config", err)
-		os.Exit(1)
+		log.Fatal("failed to configure application", err)
+		config.PrintHelp()
 	}
+
+	// Init logger
+	logger := logger.InitLogger(string(cfg.Mode), cfg.LogLevel)
 
 	config.PrintConfig(cfg)
 
 	// Creating application
-	app, err := app.NewApplication(ctx, *cfg, log)
+	app, err := app.NewApplication(ctx, *cfg, logger)
 	if err != nil {
-		log.Error(ctx, "app_init", "failed to init application", err)
+		logger.Error(ctx, "app_init", "failed to init application", err)
 		os.Exit(1)
 	}
 
 	// Running the apllication
 	err = app.Run(ctx)
 	if err != nil {
-		log.Error(ctx, "app_run", "failed to run application", err)
+		logger.Error(ctx, "app_run", "failed to run application", err)
 		os.Exit(1)
 	}
 }

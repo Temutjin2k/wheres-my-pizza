@@ -65,9 +65,9 @@ func (r *OrderProducer) PublishCreateOrder(ctx context.Context, order *models.Cr
 	}
 
 	if r.client.IsConnectionClosed() {
-		r.log.Debug(ctx, "recconect", "trying to recconect to RabbitMQ")
+		r.log.Debug(ctx, types.ActionRabbitReconnect, "trying to recconect to RabbitMQ")
 		if err := r.reconnect(ctx); err != nil {
-			return fmt.Errorf("failed to reconnect to rabbitMQ: %w", err)
+			return err
 		}
 	}
 
@@ -107,11 +107,19 @@ func (r *OrderProducer) PublishCreateOrder(ctx context.Context, order *models.Cr
 }
 
 func (r *OrderProducer) reconnect(ctx context.Context) error {
-	conn, err := rabbit.New(ctx, r.cfg.Conn, r.log)
-	if err != nil {
-		return err
+	fn := func() error {
+		conn, err := rabbit.New(ctx, r.cfg.Conn, r.log)
+		if err != nil {
+			return err
+		}
+		r.client = conn
+
+		return nil
 	}
-	r.client = conn
+
+	if err := retry(ctx, r.cfg.ReconnectAttempt, r.cfg.ReconnectDelay, fn); err != nil {
+		return fmt.Errorf("failed to recconect rabbitMQ: %w", err)
+	}
 
 	return nil
 }

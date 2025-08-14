@@ -2,6 +2,7 @@ package kitchen
 
 import (
 	"context"
+	"time"
 
 	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/models"
 )
@@ -10,7 +11,7 @@ import (
 type WorkerRepository interface {
 	// MarkOnline marks worker by inserting (or updating) a record in the
 	// workers table with its unique name and type, marking it online.
-	MarkOnline(ctx context.Context, name, orderTypes string) error
+	MarkOnline(ctx context.Context, name, orderTypes string, heartbeat time.Duration) error
 
 	// MarkOffline marks worker offline.
 	MarkOffline(ctx context.Context, name string) error

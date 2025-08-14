@@ -131,7 +131,7 @@ func (s *KitchenService) Start(ctx context.Context) error {
 			return ctx.Err()
 		case errRun := <-errCh:
 			if errors.Is(errRun, kitchen.ErrWorkerStopped) {
-				if err := s.reconnect(ctx, shutdownCh); err != nil {
+				if err := s.reconnect(ctx, shutdownCh, s.cfg.Services.Kitchen.ReconnectAttempt, s.cfg.Services.Kitchen.ReconnectDelay); err != nil {
 					return err
 				}
 				continue
@@ -162,11 +162,14 @@ func (s *KitchenService) close(ctx context.Context) {
 	s.postgresDB.Pool.Close()
 }
 
-func (s *KitchenService) reconnect(ctx context.Context, shutdownCh chan os.Signal) error {
+func (s *KitchenService) reconnect(ctx context.Context, shutdownCh chan os.Signal, attempts int, delay time.Duration) error {
 	var lastErr error
 
-	for attempt := 1; attempt <= s.cfg.RabbitMQ.ReconnectAttempt; attempt++ {
-		s.log.Info(ctx, "rabbit_reconnect_attempt", fmt.Sprintf("Attempt %d to recreate service", attempt))
+	const action = "kitchen-create-attempt"
+	const failedAction = "kitchen-create-attempt-failed"
+
+	for i := 1; i <= attempts; i++ {
+		s.log.Info(ctx, action, fmt.Sprintf("attempt %d to recreate service", i))
 
 		newSvc, err := NewKitchen(ctx, s.cfg, s.log)
 		if err == nil {
@@ -181,18 +184,18 @@ func (s *KitchenService) reconnect(ctx context.Context, shutdownCh chan os.Signa
 		}
 
 		lastErr = err
-		s.log.Error(ctx, types.ActionRabbitConnectionFailed, "failed to recreate kitchen service", err)
+		s.log.Error(ctx, failedAction, "failed to recreate kitchen service", err, "attempt", i)
 
 		select {
 		case <-shutdownCh:
-			s.log.Info(ctx, "rabbit_reconnect_stopped", "Reconnect was stopped externally")
+			s.log.Info(ctx, action, "reconnect was stopped externally")
 			return fmt.Errorf("reconnect stopped externally")
 		default:
-			time.Sleep(s.cfg.RabbitMQ.ReconnectDelay)
+			time.Sleep(delay)
 		}
 	}
 
-	s.log.Warn(ctx, "rabbit_reconnect_max_failed", "Failed to recreate service after max attempts")
+	s.log.Warn(ctx, failedAction, "failed to recreate kitchen-worker", "total-attempts", attempts)
 	return lastErr
 }
 

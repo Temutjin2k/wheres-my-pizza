@@ -18,6 +18,7 @@ const (
 	ActionNotificationReceived    = "notification_received"
 	ActionRabbitConnectionClosed  = "rabbitmq_connection_closed"
 	ActionRabbitConnectionClosing = "rabbitmq_connection_closing"
+	ActionRabbitReconnect         = "rabbitmq_reconnect"
 
 	// Error level actions
 	ActionValidationFailed         = "validation_failed"

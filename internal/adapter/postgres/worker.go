@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/models"
 	"github.com/jackc/pgx/v5"
@@ -54,22 +55,28 @@ func (repo *workerRepository) List(ctx context.Context) ([]models.Worker, error)
 }
 
 // MarkOnline marks a worker as online by inserting or updating its record.
-// If the worker already exists and is online, registration fails.
-func (repo *workerRepository) MarkOnline(ctx context.Context, name, orderTypes string) error {
+// If the worker already exists and is online but last_seen is recent (within heartbeat), registration fails.
+func (repo *workerRepository) MarkOnline(ctx context.Context, name, orderTypes string, heartbeat time.Duration) error {
 	const op = "workerRepository.MarkOnline"
 
 	query := `
-		INSERT INTO workers (name, type)
-		VALUES ($1, $2)
+		INSERT INTO workers (name, type, status, last_seen)
+		VALUES ($1, $2, 'online', now())
 		ON CONFLICT (name)
-			DO UPDATE
+		DO UPDATE
 		SET 
 			status = 'online',
-			type = $2
+			type = $2,
+			last_seen = now()
 		WHERE 
-			workers.status = 'offline' AND workers.name = $1;`
+			workers.name = $1
+			AND (
+				workers.status = 'offline' 
+				OR workers.last_seen < now() - make_interval(secs => $3)
+			);
+		`
 
-	res, err := repo.pool.Exec(ctx, query, name, orderTypes)
+	res, err := repo.pool.Exec(ctx, query, name, orderTypes, int64(heartbeat.Seconds()))
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}
@@ -134,7 +141,8 @@ func (repo *workerRepository) MarkOffline(ctx context.Context, name string) erro
 		UPDATE 
 			workers
 		SET 
-			status = 'offline'
+			status = 'offline',
+			last_seen = now()
 		WHERE 
 			name = $1;`
 

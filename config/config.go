@@ -3,11 +3,12 @@ package config
 import (
 	"errors"
 	"flag"
-	"os"
+	"fmt"
 	"time"
 
 	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/types"
 	"github.com/Temutjin2k/wheres-my-pizza/pkg/configparser"
+	"github.com/Temutjin2k/wheres-my-pizza/pkg/logger"
 	"github.com/Temutjin2k/wheres-my-pizza/pkg/postgres"
 	"github.com/Temutjin2k/wheres-my-pizza/pkg/rabbit"
 )
@@ -20,8 +21,8 @@ const (
 var (
 	// General
 	modeFlag = flag.String("mode", "", "application mode")
-	helpFlag = flag.Bool("help", false, "Show help message")
 	portFlag = flag.Int("port", -1, "The HTTP port for the API")
+	logLevel = flag.String("log-level", logger.LevelDebug, "Logger level. (DEBUG, INFO, WARN, ERROR)")
 
 	//Order service
 	maxConcurrent = flag.Int("max-concurrent", 50, "Maximum number of concurrent orders to process.")
@@ -41,11 +42,13 @@ var (
 type (
 	// Config
 	Config struct {
-		Flags    Flags
-		Services Services
-		Server   Server
-		Postgres postgres.Config
-		RabbitMQ RabbitMQ
+		Mode       types.ServiceMode
+		Services   Services
+		HTTPServer HTTPServer
+		Postgres   postgres.Config
+		RabbitMQ   RabbitMQ
+
+		LogLevel string
 	}
 
 	Services struct {
@@ -54,23 +57,14 @@ type (
 		Tracking TrackingService
 	}
 
-	// Servers config
-	Server struct {
-		HTTPServer HTTPServer
-	}
-
 	// HTTP service
 	HTTPServer struct {
 		Port int
 	}
 
-	Flags struct {
-		Help bool
-		Mode types.ServiceMode
-	}
-
 	OrderService struct {
 		MaxConcurrent int
+		SemWait       time.Duration `env:"ORDER_SEMWAIT" default:"1s"`
 	}
 
 	TrackingService struct {
@@ -82,14 +76,16 @@ type (
 		OrderTypes        string
 		Prefetch          int
 		HeartbeatInterval int
+		ReconnectAttempt  int           `env:"KITCHEN_RECONNECT_ATTEMPT" default:"5"`
+		ReconnectDelay    time.Duration `env:"KITCHEN_RECONNECT_DELAY" default:"1s"`
 	}
 
 	RabbitMQ struct {
 		Conn                  rabbit.Config
 		OrderExchange         string        `env:"RABBITMQ_ORDER_EXCHANGE" default:"orders_topic"`
 		NotificationsExchange string        `env:"RABBITMQ_NOTIFICATIONS_EXCHANGE" default:"notifications_fanout"`
-		ReconnectAttempt      int           `env:"reconnect_attempt" default:"5"`
-		ReconnectDelay        time.Duration `env:"reconnect_delay" default:"2s"`
+		ReconnectAttempt      int           `env:"RABBITMQ_RECONNECT_ATTEMPT" default:"5"`
+		ReconnectDelay        time.Duration `env:"RABBITMQ_RECONNECT_DELAY" default:"1s"`
 	}
 )
 
@@ -108,26 +104,27 @@ func New(filepath string) (*Config, error) {
 }
 
 func parseFlags(cfg *Config) error {
-	flag.Parse()
-
-	if *helpFlag {
-		flag.Usage()
-		os.Exit(0)
-	}
-
 	if modeFlag == nil {
 		return ErrModeNotProvided
 	}
 
-	cfg.Flags.Mode = types.ServiceMode(*modeFlag)
-	cfg.Flags.Help = *helpFlag
+	cfg.LogLevel = *logLevel
+	if logLevel == nil || *logLevel == "" {
+		cfg.LogLevel = logger.LevelDebug
+	}
 
-	switch cfg.Flags.Mode {
+	if err := validateLogLevel(cfg.LogLevel); err != nil {
+		return err
+	}
+
+	cfg.Mode = types.ServiceMode(*modeFlag)
+
+	switch cfg.Mode {
 	case types.ModeOrder:
 		if portFlag == nil || *portFlag < 1024 || *portFlag > 65535 {
-			cfg.Server.HTTPServer.Port = DefaultOrderServicePort
+			cfg.HTTPServer.Port = DefaultOrderServicePort
 		} else {
-			cfg.Server.HTTPServer.Port = *portFlag
+			cfg.HTTPServer.Port = *portFlag
 		}
 
 		if maxConcurrent != nil && !(*maxConcurrent >= 0 && *maxConcurrent <= 1000) {
@@ -145,9 +142,9 @@ func parseFlags(cfg *Config) error {
 		cfg.Services.Kitchen.Prefetch = *prefetch
 	case types.ModeTracking:
 		if portFlag != nil {
-			cfg.Server.HTTPServer.Port = *portFlag
+			cfg.HTTPServer.Port = *portFlag
 		} else {
-			cfg.Server.HTTPServer.Port = DefaultTrackingServicePort
+			cfg.HTTPServer.Port = DefaultTrackingServicePort
 		}
 		cfg.Services.Tracking.HeartbeatInterval = *heartbeatInt
 	case types.ModeNotificationSubscriber:
@@ -156,4 +153,13 @@ func parseFlags(cfg *Config) error {
 	}
 
 	return nil
+}
+
+func validateLogLevel(lvl string) error {
+	switch lvl {
+	case logger.LevelDebug, logger.LevelError, logger.LevelWarn, logger.LevelInfo:
+		return nil
+	default:
+		return fmt.Errorf("invalid log level: %s", lvl)
+	}
 }

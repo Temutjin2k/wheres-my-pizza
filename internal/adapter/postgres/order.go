@@ -3,7 +3,6 @@ package postgres
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/models"
 	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/types"
@@ -142,9 +141,9 @@ func (r *orderRepository) GetAndIncrementSequence(ctx context.Context, date stri
 		VALUES ($1, 1)
 		ON CONFLICT (date) DO UPDATE 
 		SET last_value = order_sequences.last_value + 1,
-		    updated_at = $2
+		    updated_at = NOW()
 		RETURNING last_value`,
-		date, time.Now().UTC(),
+		date,
 	).Scan(&seq)
 
 	if err != nil {

@@ -30,12 +30,8 @@ type App struct {
 
 // NewApplication
 func NewApplication(ctx context.Context, cfg config.Config, log logger.Logger) (*App, error) {
-	if cfg.Flags.Mode != "" {
-		log = logger.InitLogger(string(cfg.Flags.Mode), logger.LevelDebug)
-	}
-
 	app := &App{
-		mode: cfg.Flags.Mode,
+		mode: cfg.Mode,
 		cfg:  cfg,
 		log:  log,
 	}

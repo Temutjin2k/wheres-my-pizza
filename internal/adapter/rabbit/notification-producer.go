@@ -61,9 +61,9 @@ func NewProducerNotify(ctx context.Context, cfg config.RabbitMQ, log logger.Logg
 func (p *NotificationProducer) StatusUpdate(ctx context.Context, req *models.StatusUpdate) error {
 	// Cheking if connected
 	if p.client.IsConnectionClosed() {
-		p.log.Debug(ctx, "recconect", "trying to recconect to RabbitMQ")
+		p.log.Debug(ctx, types.ActionRabbitReconnect, "trying to recconect to RabbitMQ")
 		if err := p.reconnect(ctx); err != nil {
-			return fmt.Errorf("failed to reconnect to rabbitMQ: %w", err)
+			return err
 		}
 	}
 
@@ -97,11 +97,19 @@ func (p *NotificationProducer) StatusUpdate(ctx context.Context, req *models.Sta
 }
 
 func (r *NotificationProducer) reconnect(ctx context.Context) error {
-	conn, err := rabbit.New(ctx, r.cfg.Conn, r.log)
-	if err != nil {
-		return err
+	fn := func() error {
+		conn, err := rabbit.New(ctx, r.cfg.Conn, r.log)
+		if err != nil {
+			return err
+		}
+		r.client = conn
+
+		return nil
 	}
-	r.client = conn
+
+	if err := retry(ctx, r.cfg.ReconnectAttempt, r.cfg.ReconnectDelay, fn); err != nil {
+		return fmt.Errorf("failed to recconect rabbitMQ: %w", err)
+	}
 
 	return nil
 }

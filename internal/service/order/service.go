@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/Temutjin2k/wheres-my-pizza/config"
 	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/models"
 	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/types"
 	"github.com/Temutjin2k/wheres-my-pizza/pkg/logger"
@@ -24,16 +25,19 @@ type Service struct {
 	sem       Semaphore
 	semWait   time.Duration
 
+	cfg config.Config
 	log logger.Logger
 }
 
-func NewService(repo OrderRepository, writer MessageBroker, sem Semaphore, semWait time.Duration, log logger.Logger) *Service {
+func NewService(cfg config.Config, repo OrderRepository, writer MessageBroker, sem Semaphore, semWait time.Duration, log logger.Logger) *Service {
 	return &Service{
 		orderRepo: repo,
 		writer:    writer,
 		sem:       sem,
 		semWait:   time.Second,
-		log:       log,
+
+		cfg: cfg,
+		log: log,
 	}
 }
 
@@ -74,7 +78,7 @@ func (s *Service) CreateOrder(ctx context.Context, req *models.CreateOrder) (*mo
 	}
 
 	// Send request info about publishing order with retry
-	if err := retry(5, time.Second, func() error {
+	if err := retry(s.cfg.RabbitMQ.ReconnectAttempt, s.cfg.RabbitMQ.ReconnectDelay, func() error {
 		return s.writer.PublishCreateOrder(ctx, req)
 	}); err != nil {
 		s.log.Error(ctx, types.ActionDBQueryFailed, "order stored to database, but not published", err)

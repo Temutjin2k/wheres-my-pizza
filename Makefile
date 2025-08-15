@@ -26,7 +26,7 @@ migrate-down:
 migrate-version:
 	migrate -path=./migrations -database "$(DB_URL)" version
 
-
+# dine_in,takeout,delivery
 WORKER_ORDER_TYPES="dine_in,takeout,delivery"
 
 order-service-run:

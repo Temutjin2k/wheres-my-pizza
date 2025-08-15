@@ -110,7 +110,7 @@ func NewKitchen(ctx context.Context, cfg config.Config, log logger.Logger) (*Kit
 func (s *KitchenService) Start(ctx context.Context) error {
 	defer func() {
 		s.close(ctx)
-		s.log.Info(ctx, types.ActionGracefulShutdown, "kitchen service closed")
+		s.log.Info(ctx, types.ActionGracefulShutdown, "kitchen-worker service closed")
 	}()
 
 	errCh := make(chan error, 1)

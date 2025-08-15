@@ -40,8 +40,8 @@ func IsValidOrderType(s string) bool {
 	return slices.Contains(AllOrderTypes, s)
 }
 
-// GetSimulateDuration returns cooking time depending on order type
-func GetSimulateDuration(orderType string) time.Duration {
+// GetSimulateCookingDuration returns cooking time depending on order type
+func GetSimulateCookingDuration(orderType string) time.Duration {
 	switch orderType {
 	case OrderTypeDineIn:
 		return CookingTimeDineIn

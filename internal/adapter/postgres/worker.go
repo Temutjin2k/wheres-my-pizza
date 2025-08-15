@@ -56,6 +56,7 @@ func (repo *workerRepository) List(ctx context.Context) ([]models.Worker, error)
 
 // MarkOnline marks a worker as online by inserting or updating its record.
 // If the worker already exists and is online but last_seen is recent (within heartbeat), registration fails.
+// if worker marker 'online' worker still will be successfully marked if last_seen < Now() - heartbeat * 2
 func (repo *workerRepository) MarkOnline(ctx context.Context, name, orderTypes string, heartbeat time.Duration) error {
 	const op = "workerRepository.MarkOnline"
 
@@ -76,7 +77,7 @@ func (repo *workerRepository) MarkOnline(ctx context.Context, name, orderTypes s
 			);
 		`
 
-	res, err := repo.pool.Exec(ctx, query, name, orderTypes, int64(heartbeat.Seconds()))
+	res, err := repo.pool.Exec(ctx, query, name, orderTypes, int64(heartbeat.Seconds())*2)
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}

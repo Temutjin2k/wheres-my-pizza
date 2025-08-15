@@ -8,6 +8,7 @@ import (
 	"github.com/Temutjin2k/wheres-my-pizza/config"
 	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/models"
 	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/types"
+	"github.com/Temutjin2k/wheres-my-pizza/internal/service/kitchen"
 	"github.com/Temutjin2k/wheres-my-pizza/pkg/logger"
 	"github.com/Temutjin2k/wheres-my-pizza/pkg/rabbit"
 )
@@ -177,6 +178,6 @@ func (r *OrderConsumer) Close(ctx context.Context) error {
 // sent to a Dead-Letter Queue (`DLQ`) to allow for manual analysis and to prevent the queue from being blocked.
 
 // isRecoverableError returns true if the provided error must be requeued
-func isRecoverableError(_ error) bool {
-	return true
+func isRecoverableError(err error) bool {
+	return errors.Is(err, kitchen.ErrNilOrder)
 }

@@ -54,7 +54,6 @@ func NewTracking(ctx context.Context, cfg config.Config, log logger.Logger) (*Tr
 
 		log: log,
 	}, nil
-
 }
 
 func (s *Tracking) Start(ctx context.Context) error {

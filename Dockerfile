@@ -8,7 +8,7 @@ RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o restaurant-system ./cmd/service
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o restaurant-system .
 
 # Final stage
 FROM alpine:latest

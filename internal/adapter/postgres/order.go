@@ -69,7 +69,6 @@ func (r *orderRepository) Create(ctx context.Context, req *models.CreateOrder, c
 		&order.ProcessedBy,
 		&order.CompletedAt,
 	)
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to create order: %w", err)
 	}
@@ -145,7 +144,6 @@ func (r *orderRepository) GetAndIncrementSequence(ctx context.Context, date stri
 		RETURNING last_value`,
 		date,
 	).Scan(&seq)
-
 	if err != nil {
 		return 0, fmt.Errorf("failed to get/increment sequence: %w", err)
 	}

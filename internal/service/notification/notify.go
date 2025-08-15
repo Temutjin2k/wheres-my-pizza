@@ -21,13 +21,11 @@ func NewNotifyPrinter(log logger.Logger) *NotifyPrinter {
 
 // StatusUpdate just prints status update information to the console
 func (s *NotifyPrinter) StatusUpdate(ctx context.Context, update models.StatusUpdate) {
-	s.log.Info(ctx, types.ActionNotificationReceived,
-		fmt.Sprintf("Notification for order %s: Status changed from '%s' to '%s' by %s",
-			update.OrderNumber,
-			update.OldStatus,
-			update.NewStatus,
-			update.ChangedBy,
-		),
+	fmt.Printf("Notification for order %s: Status changed from '%s' to '%s' by %s\n",
+		update.OrderNumber,
+		update.OldStatus,
+		update.NewStatus,
+		update.ChangedBy,
 	)
 
 	details := struct {

@@ -1,4 +1,4 @@
-package main
+package restaurant
 
 import (
 	"context"
@@ -16,7 +16,7 @@ var (
 	configPath = flag.String("config-path", "config.yaml", "Path to the config yaml file")
 )
 
-func main() {
+func Run() {
 	flag.Parse()
 	if *helpFlag {
 		config.PrintHelp()

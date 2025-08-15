@@ -29,18 +29,25 @@ migrate-version:
 # dine_in,takeout,delivery
 WORKER_ORDER_TYPES="dine_in,takeout,delivery"
 
+build-go:
+	go build -o restaurant-system .
+
 order-service-run:
-	go run ./cmd/restaurant/ --mode=order-service --port=3000 --max-concurrent 50
+	./restaurant-system --mode=order-service --port=3000 --max-concurrent 50
 
 kitchen-worker-run:
-	go run ./cmd/restaurant/ --mode=kitchen-worker --worker-name="john_cena" --prefetch=1 --order-types="$(WORKER_ORDER_TYPES)" --heartbeat-interval=30
+	./restaurant-system --mode=kitchen-worker --worker-name="john_cena" --prefetch=1 --order-types="$(WORKER_ORDER_TYPES)" --heartbeat-interval=30
 
 tracking-service-run:
-	go run ./cmd/restaurant/ --mode=tracking-service --port=3002
+	./restaurant-system --mode=tracking-service --port=3002
 
 notification-subscriber-run:
-	go run ./cmd/restaurant/ --mode=notification-subscriber
+	./restaurant-system  --mode=notification-subscriber
 
+
+
+format:
+	gofumpt -l -w .
 
 up:
 	docker-compose up --build -d

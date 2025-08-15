@@ -13,9 +13,7 @@ import (
 	"github.com/Temutjin2k/wheres-my-pizza/pkg/logger"
 )
 
-var (
-	ErrTooManyRequest = errors.New("too many requests")
-)
+var ErrTooManyRequest = errors.New("too many requests")
 
 const servicename = "order-service"
 

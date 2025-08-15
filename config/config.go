@@ -24,7 +24,7 @@ var (
 	portFlag = flag.Int("port", -1, "The HTTP port for the API")
 	logLevel = flag.String("log-level", logger.LevelDebug, "Logger level. (DEBUG, INFO, WARN, ERROR)")
 
-	//Order service
+	// Order service
 	maxConcurrent = flag.Int("max-concurrent", 50, "Maximum number of concurrent orders to process.")
 
 	// Kitchen service

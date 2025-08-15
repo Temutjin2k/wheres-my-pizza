@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -8,13 +9,9 @@ import (
 	svc "github.com/Temutjin2k/wheres-my-pizza/internal/app/services"
 	"github.com/Temutjin2k/wheres-my-pizza/internal/domain/types"
 	"github.com/Temutjin2k/wheres-my-pizza/pkg/logger"
-
-	"context"
 )
 
-var (
-	ErrInvalidMode = errors.New("invalid mode")
-)
+var ErrInvalidMode = errors.New("invalid mode")
 
 type Service interface {
 	Start(ctx context.Context) error

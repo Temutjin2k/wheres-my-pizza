@@ -27,13 +27,11 @@ import (
 // | `'dine_in'`  | `table_number` (integer, 1-100)                | Table number at which the customer is served. | `delivery_address`    |
 // | `'delivery'` | `delivery_address` (string, min 10 characters) | Address for delivery of the order by courier. | `table_number`        |
 
-var (
-	ValidOrderTypes = []string{
-		types.OrderTypeDineIn,
-		types.OrderTypeDelivery,
-		types.OrderTypeTakeOut,
-	}
-)
+var ValidOrderTypes = []string{
+	types.OrderTypeDineIn,
+	types.OrderTypeDelivery,
+	types.OrderTypeTakeOut,
+}
 
 func ValidateCreateOrderRequest(v *validator.Validator, req *models.CreateOrder) {
 	if req == nil {

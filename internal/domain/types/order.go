@@ -26,14 +26,12 @@ const (
 	DefaultCookingTime  time.Duration = time.Second * 5
 )
 
-var (
-	// All order types
-	AllOrderTypes = []string{
-		OrderTypeDineIn,
-		OrderTypeTakeOut,
-		OrderTypeDelivery,
-	}
-)
+// All order types
+var AllOrderTypes = []string{
+	OrderTypeDineIn,
+	OrderTypeTakeOut,
+	OrderTypeDelivery,
+}
 
 // Checks if given string is order type
 func IsValidOrderType(s string) bool {

@@ -2,7 +2,10 @@ module github.com/Temutjin2k/wheres-my-pizza
 
 go 1.24.1
 
-require github.com/rabbitmq/amqp091-go v1.10.0
+require (
+	github.com/jackc/pgx/v5 v5.7.5
+	github.com/rabbitmq/amqp091-go v1.10.0
+)
 
 require (
 	github.com/jackc/pgpassfile v1.0.0 // indirect
@@ -10,9 +13,5 @@ require (
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	golang.org/x/crypto v0.37.0 // indirect
 	golang.org/x/sync v0.13.0 // indirect
-)
-
-require (
-	github.com/jackc/pgx/v5 v5.7.5
 	golang.org/x/text v0.24.0 // indirect
 )

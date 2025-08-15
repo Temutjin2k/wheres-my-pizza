@@ -62,7 +62,7 @@ func NewKitchen(ctx context.Context, cfg config.Config, log logger.Logger) (*Kit
 	}
 
 	// validate heartbeat interval
-	var heartbeatDuration = time.Duration(cfg.Services.Kitchen.HeartbeatInterval) * time.Second
+	heartbeatDuration := time.Duration(cfg.Services.Kitchen.HeartbeatInterval) * time.Second
 	if heartbeatDuration <= time.Second*5 {
 		return nil, ErrInvalidHeartbeatInterval
 	}

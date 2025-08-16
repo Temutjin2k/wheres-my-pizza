@@ -19,6 +19,35 @@ The system is composed of several independent services written in Go, which comm
 
 ## System Architecture
 
+```
+                                +--------------------------------------------+
+                                |               PostgreSQL DB                |
+                                |             (Order Storage)                |
+                                +--+-------------+---------------------------+
+                                   ^             ^                    |
+                  (Writes & Reads) |             | (Writes & Reads)   |
+                                   v             v                    |
++------------+        +-----------+              +---------------+    |
+| HTTP Client|------->|  Order    |              | Kitchen       |    |
+| (e.g. curl)|        |  Service  |              | Service       |    |
++------------+        +---------- +              +-+-------------+    |
+                         |                         ^                  |
+                (Publishes New Order)    (Publishes Status Update)    |
+                         v                         |                  |
+                   +-----+-------------------------+---------+        |
+                   |                                         |        |
+                   |         RabbitMQ Message Broker         |        |
+                   |                                         |        |
+                   +-----------------------------------------+        |
+                              |                                       |
+                              | (Status Updates)                      | (Reads)
+                              v                                       v
+                        +-----+-----------+         +-----+------------------+
+                        | Notification    |         | Tracking               |
+                        | Subscriber      |         | Service                |
+                        +-----------------+         +------------------------+
+```
+
 The system consists of the following components:
 
 * **Order Service:** The Order Service is the public-facing entry point of the restaurant system. Its primary responsibility is to receive new orders from customers via an HTTP API, validate them, store them in the database, and publish them to a message queue for the kitchen staff to process. It acts as the gatekeeper, ensuring all incoming data is correct and formatted before entering the system.

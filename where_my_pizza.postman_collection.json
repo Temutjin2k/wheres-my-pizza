@@ -1,9 +1,9 @@
 {
 	"info": {
-		"_postman_id": "e6134a62-82fd-4182-92a3-ab5390c8c433",
+		"_postman_id": "fe1a716f-e803-46c9-9110-9f16e29fde6d",
 		"name": "where_my_pizza",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-		"_exporter_id": "39030219"
+		"_exporter_id": "38774679"
 	},
 	"item": [
 		{
@@ -13,7 +13,18 @@
 					"name": "Get Status",
 					"request": {
 						"method": "GET",
-						"header": []
+						"header": [],
+						"url": {
+							"raw": "{{tracking_URL}}/orders/{{number}}/status",
+							"host": [
+								"{{tracking_URL}}"
+							],
+							"path": [
+								"orders",
+								"{{number}}",
+								"status"
+							]
+						}
 					},
 					"response": []
 				},
@@ -21,7 +32,17 @@
 					"name": "Workers List",
 					"request": {
 						"method": "GET",
-						"header": []
+						"header": [],
+						"url": {
+							"raw": "{{tracking_URL}}/workers/status",
+							"host": [
+								"{{tracking_URL}}"
+							],
+							"path": [
+								"workers",
+								"status"
+							]
+						}
 					},
 					"response": []
 				},
@@ -29,7 +50,18 @@
 					"name": "Order History",
 					"request": {
 						"method": "GET",
-						"header": []
+						"header": [],
+						"url": {
+							"raw": "{{tracking_URL}}/orders/{{number}}/history",
+							"host": [
+								"{{tracking_URL}}"
+							],
+							"path": [
+								"orders",
+								"{{number}}",
+								"history"
+							]
+						}
 					},
 					"response": []
 				}
@@ -46,7 +78,7 @@
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\r\n  \"customer_name\": \"John Doe\",\r\n  \"order_type\": \"takeout\",\r\n  \"items\": [\r\n    { \"name\": \"Margherita Pizza\", \"quantity\": 1, \"price\": 15.99 },\r\n    { \"name\": \"Caesar Salad\", \"quantity\": 1, \"price\": 8.99 }\r\n  ]\r\n}",
+							"raw": "{\r\n    \"customer_name\": \"Bekzhan\",\r\n    \"order_type\": \"takeout\",\r\n    \"items\": [\r\n        {\r\n            \"name\": \"hello world\",\r\n            \"quantity\": 5,\r\n            \"price\": 5\r\n        },\r\n        {\r\n            \"name\": \"Caesar Salad\",\r\n            \"quantity\": 1,\r\n            \"price\": 0.1\r\n        }\r\n    ]\r\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -54,25 +86,122 @@
 							}
 						},
 						"url": {
-							"raw": "{{order_URL}}/order",
+							"raw": "{{order_URL}}/orders",
 							"host": [
 								"{{order_URL}}"
 							],
 							"path": [
-								"order"
+								"orders"
 							]
 						}
 					},
-					"response": []
+					"response": [
+						{
+							"name": "Takeout",
+							"originalRequest": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"customer_name\": \"temut\",\r\n    \"order_type\": \"takeout\",\r\n    \"items\": [\r\n        {\r\n            \"name\": \"hello world\",\r\n            \"quantity\": 5,\r\n            \"price\": 5\r\n        },\r\n        {\r\n            \"name\": \"Caesar Salad\",\r\n            \"quantity\": 1,\r\n            \"price\": 0.1\r\n        }\r\n    ]\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{order_URL}}/orders",
+									"host": [
+										"{{order_URL}}"
+									],
+									"path": [
+										"orders"
+									]
+								}
+							},
+							"_postman_previewlanguage": null,
+							"header": null,
+							"cookie": [],
+							"body": null
+						},
+						{
+							"name": "Dine-in",
+							"originalRequest": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"customer_name\": \"temut\",\r\n    \"order_type\": \"dine_in\",\r\n    \"items\": [\r\n        {\r\n            \"name\": \"hello world\",\r\n            \"quantity\": 5,\r\n            \"price\": 5\r\n        },\r\n        {\r\n            \"name\": \"Caesar Salad\",\r\n            \"quantity\": 1,\r\n            \"price\": 0.1\r\n        }\r\n    ],\r\n    \"table_number\": 7\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{order_URL}}/orders",
+									"host": [
+										"{{order_URL}}"
+									],
+									"path": [
+										"orders"
+									]
+								}
+							},
+							"_postman_previewlanguage": null,
+							"header": null,
+							"cookie": [],
+							"body": null
+						},
+						{
+							"name": "Delivery",
+							"originalRequest": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"customer_name\": \"temut\",\r\n    \"order_type\": \"delivery\",\r\n    \"items\": [\r\n        {\r\n            \"name\": \"Pizza\",\r\n            \"quantity\": 5,\r\n            \"price\": 5\r\n        },\r\n        {\r\n            \"name\": \"Caesar Salad\",\r\n            \"quantity\": 1,\r\n            \"price\": 0.1\r\n        }\r\n    ],\r\n    \"delivery_address\": \"Kabanbay batyra 15\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{order_URL}}/orders",
+									"host": [
+										"{{order_URL}}"
+									],
+									"path": [
+										"orders"
+									]
+								}
+							},
+							"_postman_previewlanguage": null,
+							"header": null,
+							"cookie": [],
+							"body": null
+						}
+					]
 				}
 			],
 			"description": "Order Service API endpoints"
 		},
 		{
-			"name": "Health Check",
+			"name": "healthcheck",
 			"request": {
 				"method": "GET",
-				"header": []
+				"header": [],
+				"url": {
+					"raw": "{{order_URL}}/health",
+					"host": [
+						"{{order_URL}}"
+					],
+					"path": [
+						"health"
+					]
+				}
 			},
 			"response": []
 		}
@@ -90,6 +219,16 @@
 		},
 		{
 			"key": "base_URL",
+			"value": "localhost:3000",
+			"type": "default"
+		},
+		{
+			"key": "number",
+			"value": "ORD_20250814_001",
+			"type": "default"
+		},
+		{
+			"key": "URL",
 			"value": "localhost:3000",
 			"type": "default"
 		}

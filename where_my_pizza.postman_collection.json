@@ -78,7 +78,7 @@
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\r\n    \"customer_name\": \"Bekzhan\",\r\n    \"order_type\": \"takeout\",\r\n    \"items\": [\r\n        {\r\n            \"name\": \"hello world\",\r\n            \"quantity\": 5,\r\n            \"price\": 5\r\n        },\r\n        {\r\n            \"name\": \"Caesar Salad\",\r\n            \"quantity\": 1,\r\n            \"price\": 0.1\r\n        }\r\n    ]\r\n}",
+							"raw": "{\r\n    \"customer_name\": \"temut\",\r\n    \"order_type\": \"takeout\",\r\n    \"items\": [\r\n        {\r\n            \"name\": \"pizza\",\r\n            \"quantity\": 5,\r\n            \"price\": 5\r\n        },\r\n        {\r\n            \"name\": \"Caesar Salad\",\r\n            \"quantity\": 1,\r\n            \"price\": 0.1\r\n        }\r\n    ]\r\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -132,7 +132,7 @@
 								"header": [],
 								"body": {
 									"mode": "raw",
-									"raw": "{\r\n    \"customer_name\": \"temut\",\r\n    \"order_type\": \"dine_in\",\r\n    \"items\": [\r\n        {\r\n            \"name\": \"hello world\",\r\n            \"quantity\": 5,\r\n            \"price\": 5\r\n        },\r\n        {\r\n            \"name\": \"Caesar Salad\",\r\n            \"quantity\": 1,\r\n            \"price\": 0.1\r\n        }\r\n    ],\r\n    \"table_number\": 7\r\n}",
+									"raw": "{\r\n    \"customer_name\": \"temut\",\r\n    \"order_type\": \"dine_in\",\r\n    \"items\": [\r\n        {\r\n            \"name\": \"pizza\",\r\n            \"quantity\": 5,\r\n            \"price\": 5\r\n        },\r\n        {\r\n            \"name\": \"Caesar Salad\",\r\n            \"quantity\": 1,\r\n            \"price\": 0.1\r\n        }\r\n    ],\r\n    \"table_number\": 7\r\n}",
 									"options": {
 										"raw": {
 											"language": "json"
